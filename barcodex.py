@@ -524,22 +524,22 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                         # no extraction from read2, append umi to read name and write read from input fastq2
                         newreads.append(list(map(lambda x: x.strip(), [readnames[1], read[1][1], read[1][2], read[1][3]])))
                     if keep_extracted:
-                        r1_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]))))
+                        r1_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]))) + '\n')
                 elif pattern2:
                     # paired end sequencing, umi extracted from read2
                     newreads = [list(map(lambda x: x.strip(), [readnames[0], read[0][1], read[0][2], read[0][3]]))]
                     newreads.append(list(map(lambda x: x.strip(), [readnames[1], seqs[0], read[1][2], quals[0]])))
                     if keep_extracted and r2_extracted:
-                        r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))))
+                        r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))) + '\n')
 
                 # write new reads to output fastq
                 for i in range(len(outfastqs)):
-                    outfastqs[i].write('\n'.join(newreads[i]))
+                    outfastqs[i].write('\n'.join(newreads[i]) +'\n')
         else:
             NonMatching += 1
             if keep_discarded:
                 for i in range(len(discarded_fastqs)):
-                    discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))))
+                    discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
 
     # close all open files
     for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
