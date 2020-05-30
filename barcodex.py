@@ -16,9 +16,12 @@ def _is_gzipped(filename):
     '''
     (str) -> bool
 
-    :param filename (str): File name or file path    
-    
     Return True if the file is gzipped and False otherwise
+
+    Parameters
+    ----------
+    
+     - filename (str): File name or file path    
     '''
     
     # open file in rb mode
@@ -35,9 +38,12 @@ def _open_fastq(fastq):
     '''
     (str) -> _io.TextIOWrapper
     
-    :param fastq (str): Path to the file fastq (compressed or not)
+    Returns an open fastq file with file handler at the begining of the file
     
-    Return an opened fastq file with file handler at the begining of the file
+    Parameters
+    ----------
+    
+    - fastq (str): Path to the fastq file (compressed or not)
     '''
     
     # open input fastq
@@ -52,11 +58,21 @@ def _add_umi_to_readname(readname, UMI, separator):
     '''
     (str, str, str) -> str
     
-    :param readname: read header
-    :param UMI: UMI sequence
-    :param separator: string separating the UMI sequence and part of the read header
+    Returns the read name with the UMI sequence separated by separator
     
-    Returns the read name with UMI sequence
+    Parameters
+    ----------
+    
+    - readname (str): Read header
+    - UMI (str): UMI sequence
+    - separator (str): String separating the UMI sequence and part of the read header
+
+    Examples
+    --------
+    >>> _add_umi_to_readname('@MISEQ753:114:000000000-D6365:1:1101:12254:19531 1:N:0:ATCACG', 'ATCG', '_')
+    '@MISEQ753:114:000000000-D6365:1:1101:12254:19531_ATCG 1:N:0:ATCACG'
+    >>> _add_umi_to_readname('@MISEQ753:114:000000000-D6365:1:1101:12254:19531 1:N:0:ATCACG', 'ATCGAT', ';')
+    '@MISEQ753:114:000000000-D6365:1:1101:12254:19531;ATCGAT 1:N:0:ATCACG'
     '''
     
     readname = readname.split(' ')
