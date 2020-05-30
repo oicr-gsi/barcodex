@@ -130,14 +130,16 @@ def _check_pattern_sequence(pattern):
 
 def _check_extraction_mode(pattern, pattern2):
     '''
-    (str, str) -> None
+    (str | None, str | None) -> None
     
     '''
     
-    if _is_pattern_sequence(pattern) == True and _is_pattern_sequence(pattern2) == False:
-        raise ValueError('Both patterns must be either string sequences or regex')
-    elif _is_pattern_sequence(pattern) == False and _is_pattern_sequence(pattern2) == True:
-        raise ValueError('Both patterns must be either string sequences or regex')
+    if pattern and pattern2:
+        if _is_pattern_sequence(pattern) == True and _is_pattern_sequence(pattern2) == False:
+            raise ValueError('Both patterns must be either string sequences or regex')
+        elif _is_pattern_sequence(pattern) == False and _is_pattern_sequence(pattern2) == True:
+            raise ValueError('Both patterns must be either string sequences or regex')
+
 
 def _get_umi_spacer(pattern):
     '''
@@ -157,9 +159,9 @@ def _get_umi_spacer(pattern):
     return UMI, spacer
     
 
-def _extract_from_sequence(read, UMI, spacer, inline_umi=True):
+def _extract_from_sequence(read, UMI, spacer):
     '''
-    (list, str, str, bool) -> (str, str, str, str, str)
+    (list, str, str) -> (str, str, str, str, str)
     
     Returns a tuple with the read sequence and qualities after barcode extraction,
     the umi sequence, the extracted read sequence and qualities
@@ -172,20 +174,18 @@ def _extract_from_sequence(read, UMI, spacer, inline_umi=True):
     if spacer in read[1]:
         if spacer == read[1][len(UMI): len(UMI) + len(spacer)]:
             umi_seq = read[1][: len(UMI)]
-            # no extraction if umi not inline with read
-            if inline_umi:
-                extracted_seq = read[1][: len(UMI) + len(spacer)]
-                extracted_qual = read[3][: len(UMI) + len(spacer)]
-                seq = read[1][len(UMI) + len(spacer):]
-                qual = read[3][len(UMI) + len(spacer):]
+            extracted_seq = read[1][: len(UMI) + len(spacer)]
+            extracted_qual = read[3][: len(UMI) + len(spacer)]
+            seq = read[1][len(UMI) + len(spacer):]
+            qual = read[3][len(UMI) + len(spacer):]
     
     return seq, qual, umi_seq, extracted_seq, extracted_qual
     
 
 
-def _extract_from_regex(read, p, full_match=False, inline_umi=True):
+def _extract_from_regex(read, p, full_match=False):
     '''
-    (list, _regex.Pattern, bool, bool)
+    (list, _regex.Pattern, bool)
     
     '''
     
@@ -215,26 +215,24 @@ def _extract_from_regex(read, p, full_match=False, inline_umi=True):
         umi_seq = ''
         for i in umi_pos:
             umi_seq += read[1][i[0]:i[1]]
-        # no extraction if umi not inline with read
-        if inline_umi:
-            # get indices of extracted sequences
-            extracted_pos = sorted(umi_pos + discard_pos)
-            # get indices of remaining sequence
-            removed = []
-            for i in umi_pos + discard_pos:
-                removed.extend(list(range(i[0], i[1])))
-            remaining = sorted([i for i in range(len(read[1])) if i not in removed])
+        # get indices of extracted sequences
+        extracted_pos = sorted(umi_pos + discard_pos)
+        # get indices of remaining sequence
+        removed = []
+        for i in umi_pos + discard_pos:
+            removed.extend(list(range(i[0], i[1])))
+        remaining = sorted([i for i in range(len(read[1])) if i not in removed])
         
-            # get extracted sequence and qualities
-            extracted_seq, extracted_qual = '', ''
-            for i in extracted_pos:
-                extracted_seq += read[1][i[0]: i[1]]
-                extracted_qual += read[3][i[0]: i[1]]
-            # get read seq and qual after extraction
-            seq, qual = '', ''
-            for i in remaining:
-                seq += read[1][i]
-                qual += read[3][i]
+        # get extracted sequence and qualities
+        extracted_seq, extracted_qual = '', ''
+        for i in extracted_pos:
+            extracted_seq += read[1][i[0]: i[1]]
+            extracted_qual += read[3][i[0]: i[1]]
+        # get read seq and qual after extraction
+        seq, qual = '', ''
+        for i in remaining:
+            seq += read[1][i]
+            qual += read[3][i]
         
     return seq, qual, umi_seq, extracted_seq, extracted_qual
 
@@ -252,16 +250,13 @@ def _get_read(fastq_file):
 
 
 
-def _check_fastq_sync(read1, read2, read3 = None):
+def _check_fastq_sync(L):
     '''
-    (str, str, str | None) -> None
+    (list) -> None
     
     
     '''
     
-    L = [read1, read2]
-    if read3:
-        L.append(read3)
     readnames = []
     for i in L:
         readnames.append(i.split(' ')[0])
@@ -281,34 +276,27 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
             # requires r1 and r2 but not r3
             # requires pattern, pattern2 optional
             if any(map(lambda x: x is None, [r1_in, r1_out, r2_in, r2_out])):
-                raise ValueError('Expecting paired end sequences with inline UMIs. \
-                                 Paths to r1 and r2 I/O fastqs required')
-            if not r3 is None:
-                raise ValueError('Expecting paired end sequences with inline UMIs. \
-                                 Paths to r1 and r2 I/O fastqs required. Path to r3 input not needed')
+                raise ValueError('Expecting paired end sequences with inline UMIs. Paths to r1 and r2 I/O fastqs required')
+            if not r3_in is None:
+                raise ValueError('Expecting paired end sequences with inline UMIs. Paths to r1 and r2 I/O fastqs required. Path to r3 input not needed')
         elif not inline_umi:
             # requires r1, r2 and r3
             # requires pattern, pattern2 not needed
             if any(map(lambda x: x is None, [r1_in, r1_out, r2_in, r2_out, r3_in])):
-                raise ValueError('Expecting paired end sequences with out of read UMIs. \
-                                 Paths to r1 and r2 I/O fastqs and to r3 input fastq required')
+                raise ValueError('Expecting paired end sequences with out of read UMIs. Paths to r1 and r2 I/O fastqs and to r3 input fastq required')
     elif data == 'single':
         if inline_umi:
             # requires r1, but not r2 and not r3
             if any(map(lambda x: x is None, [r1_in, r1_out])):
-                raise ValueError('Expecting single end sequences with inline UMIs. \
-                                 Paths to r1 I/O fastqs required')
+                raise ValueError('Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required')
             if any(map(lambda x: x is not None, [r2_in, r2_out, r3_in])):
-                raise ValueError('Expecting single end sequences with inline UMIs. \
-                                 Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed')
+                raise ValueError('Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed')
         elif not inline_umi:
             # requires r1 and r2, r3 not needed
             if any(map(lambda x: x is None, [r1_in, r1_out, r2_in])):
-                raise ValueError('Expecting single end sequences with out of read UMIs. \
-                                 Paths to r1 I/O and r2 input fastqs required')
+                raise ValueError('Expecting single end sequences with out of read UMIs. Paths to r1 I/O and r2 input fastqs required')
             if any(map(lambda x: x is not None, [r2_out, r3_in])):
-                raise ValueError('Expecting single end sequences with out of read UMIs. \
-                                 Paths to r2 output and r3 input fastq not needed')
+                raise ValueError('Expecting single end sequences with out of read UMIs. Paths to r2 output and r3 input fastq not needed')
 
 
 def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=True):
@@ -345,14 +333,56 @@ def _convert_arg_to_bool(argument):
         raise ValueError('ERR: {0} is expected to be a boolean'.format(argument))
         
     
+     
+def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
+    '''
+    (list, bool, str | None, str | None, _regex.Pattern | None, bool) -> (str, str, str, str, str)
     
     
     
+    '''
+    
+    if seq_extract == True:
+        # extraction using string sequence. assumes UMi starts at begining of read        
+        L = _extract_from_sequence(read, UMI, spacer)
+    else:
+        L = _extract_from_regex(read, p, full_match)
+    return L
+    
+
+
+def _get_read_patterns(pattern):
+    '''
+    
+    
+    '''
+    
+    
+    # initialize variables
+    seq_extract, UMI, spacer, p = None, None, None, None
+    
+    if pattern:
+        # check if pattern is nucleotide string or regex
+        if _is_pattern_sequence(pattern) == True:
+            seq_extract = True
+            # get UMi and spacer
+            UMI, spacer = _get_umi_spacer(pattern)
+        else:
+            seq_extract = False
+            # compile pattern
+            p = regex.compile(pattern)
+
+    return seq_extract, UMI, spacer, p
+
+
+
+
+
     
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
-                     r2_in=None, r2_out=None, r3_in=None, full_match=False):
+                     r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_'):
     """
 
 
@@ -361,15 +391,17 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
 
     """
     
-    # to do:
+    # to do/things to consider
     # remove extension before appending discarded or extracted extension
-    # check that gzip.open opens for compression
-    # option to output fastq or fastq.gz
-    # module
-    # script
-    # write stats file
-    # umis in 5' or/and 3'
-    # keep discarded and extracted in sync
+    # append extracted sequences to read name instead of fastq
+    # option to output to fastq or gzip compressed fastq.gz
+    # option of compression level
+    # run as module and script
+    # handle umis not in line with read
+    # use whitelist
+    # add docstrings
+    # add test cases
+    
     
     
     # check input and output parameters
@@ -378,9 +410,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     _check_pattern_options(pattern, pattern2, data, inline_umi)
 
     # open files for reading
-    r1 = _open_fastq(r1_in)    
-    r2 = _open_fastq(r2_in) if r2_in else None
-    r3 = _open_fastq(r3_in) if r3_in else None
+    r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, [r1_in, r2_in, r3_in]))
     
     # open outfiles for writing
     r1_writer = gzip.open(r1_out, 'wt')
@@ -423,175 +453,101 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
         r1_extracted, r2_extracted, r3_extracted = None, None, None
         
         
-    # check if pattern is nucleotide string or regex
-    if IsPatternSequence(pattern) == True:
-        seq_extract = True
-        # get UMi and spacer
-        UMI, spacer = get_umi_spacer(pattern)
-    else:
-        seq_extract = False
-        # compile pattern
-        p = regex.compile(pattern)
-             
-    # check if second pattern is used
-    if pattern2:
-        # check that both patterns are either strings or regex
-        CheckExtractionMode(pattern, pattern2)
-        if IsPatternSequence(pattern2) == True:
-            # get UMi and spacer
-            UMI2, spacer2 = get_umi_spacer(pattern2)
-        else:
-            # compile pattern
-            p2 = regex.compile(pattern2)
-    
-         
-    # do a check based on number of input and output files currently supported in the library prep ini
-    if num_reads == 3:
-        assert actual_reads == 2, 'Expecting 2 output fastqs and 3 input fastqs'
-    elif num_reads == 2:
-        assert actual_reads == 2, 'Expecting 2 output fastqs and 2 input fastqs'
-    elif num_reads == 1:
-        assert actual_reads == 1, 'Expecting 1 output fastq and 1 input fastq'
-
-    print("Preprocessing reads...")
+        
+    # check that both patterns are either strings or regex
+    _check_extraction_mode(pattern, pattern2)
+    # get pattern variables for each read 
+    vals = list(zip(*list(map(lambda x: _get_read_patterns(x), [pattern, pattern2]))))
+    P = [pattern, pattern2]
+    seq_extract  = any(vals[0])
+    UMIs = [vals[1][i] for i in range(len(P)) if P[i] is not None]
+    spacers = [vals[2][i] for i in range(len(P)) if P[i] is not None]
+    ps = [vals[3][i] for i in range(len(P)) if P[i] is not None]
+    patterns = [i for i in P if i is not None]
     
     # make a list of fastqs open for reading
-    fastqs = [i for i in [r1, r2, r3] if i != None]
+    infastqs = [i for i in [r1, r2, r3] if i is not None]
     
     # make a list of files open for writing
-    writers = [i for i in [r1_writer, r2_writer] if i != None]
+    outfastqs = [i for i in [r1_writer, r2_writer] if i is not None]
 
-    # make a list of files open for writing discarded reads
-    if spacer == True:
-        discarded = [i for i in [r1_discarded, r2_discarded, r3_discarded] if i != None]
+    # make lists of optional files
+    discarded_fastqs = [i for i in [r1_discarded, r2_discarded] if i is not None]
+    extracted_fastqs = [i for i in [r1_extracted, r2_extracted, r3_extracted] if i is not None]
     
-    # check the number of input files
     # create iterator with reads from each file
-    if len(fastqs) == 3:
-        I =  zip(getread(fastqs[0]), getread(fastqs[1]), getread(fastqs[2]))
-    elif len(fastqs) == 2:
-        I =  zip(getread(fastqs[0]), getread(fastqs[1]))
-    elif len(fastqs) == 1:
-        I =  zip(getread(fastqs[0]))
+    Reads = zip(*map(lambda x: _get_read(x), infastqs))
     
-    # count all reads and reads with incorrect and correct umi/spacer configuration
-    Total, Correct, Incorrect = 0, 0, 0
-    # Record all umi sequences with correct umi/spacer configuration    
-    UmiSequences = []
-    # Record read length
-    ReadLength = [set(), set()]
-        
-    # loop over iterator with slices of 4 read lines from each line
-    for reads in I:
+    # count all reads and reads with matching and non-matching patterns
+    Total, Matching, NonMatching = 0, 0, 0
+         
+    # loop over iterator with slices of 4 read lines from each file
+    for read in Reads:
+        # reset variable at each iteration. used to evaluate match
+        umi = ''
+        # check that input fastqs are in sync
+        _check_fastq_sync([i[0] for i in read])
         # count total reads
         Total += 1
-        # extract umi sequences from reads
-        if seq_extract == True:
-            # extraction using string sequence. assumes UMi starts at begining of read
+        # extract umis from reads
+        if inline_umi:
+            # extract UMI from read1 and/or read2 
+            L = [_extract_umi_from_read(read[i], seq_extract, UMIs[i], spacers[i], ps[i], full_match) if patterns[i] else None for i in range(len(patterns))]     
+            #L = [_extract_umi_from_read(read[i], seq_extract, UMIs[i], spacers[i], ps[i], full_match) for i in range(len(patterns)) if patterns[i]]     
+            # get umi sequences
+            umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
+            if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
+                umi = ''.join(umi_sequences)
             
-            
-            seq, qual, umi_seq, extracted_seq, extracted_qual = ExtractFromSequence(read, UMI, spacer)
-        
-        
-        
-        
-            print('hello')
-        
-        # make a list of read sequences
-        readseqs = [i[1] for i in reads]
-        umis = extract_umis(readseqs, umi_locs, umi_lens, umi_pos)
-        
-        # make a list of reads with umis
-        reads_with_umis = [readseqs[i-1] for i in umi_locs]
-        
-        # skip reads with spacer in wrong position
-        if spacer == True and False in [correct_spacer(reads_with_umis[i], umis[i], umi_pos[i] -1, spacer_seq) for i in range(len(reads_with_umis))]:
-            # count reads with incorrect umi/spacer configuration 
-            Incorrect += 1
-            # write reads with incorrect umi/spacer configuration to separate fastqs 
-            for i in range(len(discarded)):
-                for j in range(len(reads[i])):
-                    discarded[i].write(reads[i][j])
-            # skip read processing
-            continue
+        # check if umi matched pattern
+        if umi:
+            Matching +=1
+            if inline_umi:
+                # get read names, read, umi and extracted sequences and qualities for single and paired end
+                readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
+                seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
+                
+                assert umi == ''.join(umi_seqs)
+                
+                
+                if pattern and pattern2:
+                    # paired end sequencing, umi extracted from each read
+                    newreads = [list(map(lambda x: x.strip(), [readnames[i], seqs[i], read[i][2], quals[i]])) for i in range(len(read))]
+                    # write extracted sequences to file(s)
+                    if keep_extracted:
+                        for i in range(len(extracted_fastqs)):
+                            extracted_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), [read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]))))
+                elif pattern:
+                    # single or paired end sequencing, umi extracted from read1
+                    newreads = [list(map(lambda x: x.strip(), [readnames[0], seqs[0], read[0][2], quals[0]]))]
+                    if data == 'paired':
+                        # no extraction from read2, append umi to read name and write read from input fastq2
+                        newreads.append(list(map(lambda x: x.strip(), [readnames[1], read[1][1], read[1][2], read[1][3]])))
+                    if keep_extracted:
+                        r1_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]))))
+                elif pattern2:
+                    # paired end sequencing, umi extracted from read2
+                    newreads = [list(map(lambda x: x.strip(), [readnames[0], read[0][1], read[0][2], read[0][3]]))]
+                    newreads.append(list(map(lambda x: x.strip(), [readnames[1], seqs[0], read[1][2], quals[0]])))
+                    if keep_extracted and r2_extracted:
+                        r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))))
 
-        # count number of reads with correct umi/spacer configuration
-        Correct += 1
-        
-        # collect umi sequences
-        UmiSequences.extend(umis)
-        
-        # edit read names and add umi
-        # make parallel lists with begining and end of read name from r1, and from r2 or r3
-        read_name1, rest1 = reads[0][0].rstrip().split(' ')
-        readnames, namerests = [read_name1], [rest1]
-        
-        if len(reads) > 1:
-            # edit read name from r2 (or r3)
-            read_name2, rest2 = reads[-1][0].rstrip().split(' ')
-            readnames.append(read_name2)
-            namerests.append(rest2)
-         
-        # make lists with umi lengths, spacer lengths and umi positions for     
-        UmiLength, SpacerLength, UmiPositions = [umi_len_r1, umi_len_r2], [spacer_len_r1, spacer_len_r2], [umi_pos_r1, umi_pos_r2]    
-        
-        for i in range(len(writers)):
-            # if paired reads and umis are in each read: concatenate umis and assign concatenated umi to each read
-            # if paired read and single umi: assign the same umi to each read
-            # if single end read, assign the umi to its read
-            if len(umis) > 1:
-                # concatenate umis
-                umiseq = ''.join(umis)
-            elif len(umis) == 1:
-                umiseq = umis[0]
-            # add umi to read name and write to outputfile
-            writers[i].write(readnames[i] + ":" + umiseq + " " + namerests[i] + "\n")
-            # remove umi and spacer from read seq. write remaining of read to outputfile
-            if i == 0:
-                # determine index for reads k <- 0 for r1, -1 for r2 or r3
-                k = 0
-            elif i > 0:
-                k = -1
-            
-            # check if umis are inline with reads or not
-            # remove umi + spacer (if any) if umis inline with reads
-            if umi_inline == False:
-                p, l, s = 0, 0, 0
-            else:
-                p, l, s = UmiPositions[i], UmiLength[i], SpacerLength[i]
-            
-            # compute read length
-            ReadLength[i].add(len(reads[k][1][p + l + s:]))
-            
-            # write new fastqs
-            writers[i].write(reads[k][1][p + l + s:])
-            writers[i].write(reads[k][2])
-            writers[i].write(reads[k][3][p + l + s:])
-        
+                # write new reads to output fastq
+                for i in range(len(outfastqs)):
+                    outfastqs[i].write('\n'.join(newreads[i]))
+        else:
+            NonMatching += 1
+            if keep_discarded:
+                for i in range(len(discarded_fastqs)):
+                    discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))))
+
     # close all open files
-    for i in writers:
+    for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
         i.close()
-    for i in fastqs:
-        i.close()
-    if spacer == True:
-        if len(discarded) != 0:
-            for i in discarded:
-                i.close()
+        
+    print(Total, Matching, NonMatching)
+
     
-    print("Complete. Output written to {0}".format(outdir))
-    
-    # record read indo as json
-    D = {'Total': Total, 'Correct': Correct, 'Incorrect': Incorrect}
-    if len(ReadLength[0]) != 0:
-        lr1 = list(ReadLength[0])[0]
-        D['length_read1'] = lr1   
-    if len(ReadLength[1]) != 0:
-        lr2 = list(ReadLength[1])[0]
-        D['length_read2'] = lr2
-    return D, UmiSequences
-
-
-
 if __name__ == '__main__':
         
     # create parser
@@ -599,36 +555,27 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers()
        		
     # extract commands
-    e_parser = subparsers.add_parser('extract', help="Preprocess mode for processing fastq files")
-    p_parser.add_argument('-o', '--OutDir', dest='outdir', help='Output directory. Available from command or config')
-    p_parser.add_argument('-r1', '--Read1', dest='read1', help='Path to first FASTQ file.', required=True)
-    p_parser.add_argument('-r2', '--Read2', dest='read2', help='Path to second FASTQ file, if applicable')
-    p_parser.add_argument('-r3', '--Read3', dest='read3', help='Path to third FASTQ file, if applicable')
-    p_parser.add_argument('-p', '--Prepname', dest='prepname', choices=['HALOPLEX', 'SURESELECT', 'EPIC-DS', 'SIMSENSEQ-PE', 'SIMSENSEQ-SE'], 
-                          help='Name of library prep to  use (defined in library_prep_types.ini)', required=True)
-    p_parser.add_argument('-pf', '--Prepfile', dest='prepfile', help='Path to your library_prep_types.ini file')
-    p_parser.add_argument('-c', '--Config', dest='config', help='Path to your config file')
-    p_parser.add_argument('-px', '--Prefix', dest= 'prefix', help='Prefix for naming umi-reheradered fastqs. Use Prefix from Read1 if not provided') 
-    #p_parser.set_defaults(func=extract_barcodes)
+    e_parser = subparsers.add_parser('extract', help="Extract UMIs from read sequences")
+    e_parser.add_argument('--r1_in', dest='r1_in', help='Path to input FASTQ 1', required=True)
+    e_parser.add_argument('--r1_out', dest='r1_out', help='Path to output FASTQ 1', required=True)
+    e_parser.add_argument('--pattern', dest='pattern', help='Barcode string of regex for extracting UMIs in read 1')
+    e_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
+    e_parser.add_argument('--inline', dest='inline_umi', action='store_true', help='UMIs inline with reads or not. True if activated')
+    e_parser.add_argument('--data', dest='data', choices=['single', 'paired'], default='single', help='Paired or single end sequencing')
+    e_parser.add_argument('--r2_in', dest='r2_in', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
+    e_parser.add_argument('--r2_out', dest='r2_out', help='Path to output FASTQ 2')
+    e_parser.add_argument('--r3_in', dest='r3_in', help='Path to input FASTQ 3. Fastq with UMIs for paired end sequencing with UMIs not in line')
+    e_parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
+    e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
+    e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
+    e_parser.add_argument('--full_match', dest='full_match', action='store_false', help='Requires the regex pattern to match the entire read sequence. True if activated')
     
-
-
-
-    
-    
-        
     args = parser.parse_args()
-    try:
-        args.func(args)
-    except AttributeError as e:
-        print(e)
-        print(parser.format_help())
+    extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
+                     inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match)
         
-        
-    extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
-                     data='single', keep_extracted=True, keep_discarded=True,
-                     r2_in=None, r2_out=None, r3_in=None, full_match=False):
 
     
-    ices=[True, False], type=ConvertArgToBool, default=False, help='Keep the most abundant family and ignore families at other positions within each group. Default is False')
-        
+
+    
