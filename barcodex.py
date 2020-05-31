@@ -16,9 +16,12 @@ def _is_gzipped(filename):
     '''
     (str) -> bool
 
-    :param filename (str): File name or file path    
+    Returns True if the file is gzipped and False otherwise
+
+    Parameters
+    ----------
     
-    Return True if the file is gzipped and False otherwise
+     - filename (str): File name or file path    
     '''
     
     # open file in rb mode
@@ -35,9 +38,12 @@ def _open_fastq(fastq):
     '''
     (str) -> _io.TextIOWrapper
     
-    :param fastq (str): Path to the file fastq (compressed or not)
+    Returns an open fastq file with file handler at the begining of the file
     
-    Return an opened fastq file with file handler at the begining of the file
+    Parameters
+    ----------
+    
+    - fastq (str): Path to the fastq file (compressed or not)
     '''
     
     # open input fastq
@@ -52,11 +58,21 @@ def _add_umi_to_readname(readname, UMI, separator):
     '''
     (str, str, str) -> str
     
-    :param readname: read header
-    :param UMI: UMI sequence
-    :param separator: string separating the UMI sequence and part of the read header
+    Returns the read name with the UMI sequence separated by separator
     
-    Returns the read name with UMI sequence
+    Parameters
+    ----------
+    
+    - readname (str): Read header
+    - UMI (str): UMI sequence
+    - separator (str): String separating the UMI sequence and part of the read header
+
+    Examples
+    --------
+    >>> _add_umi_to_readname('@MISEQ753:114:000000000-D6365:1:1101:12254:19531 1:N:0:ATCACG', 'ATCG', '_')
+    '@MISEQ753:114:000000000-D6365:1:1101:12254:19531_ATCG 1:N:0:ATCACG'
+    >>> _add_umi_to_readname('@MISEQ753:114:000000000-D6365:1:1101:12254:19531 1:N:0:ATCACG', 'ATCGAT', ';')
+    '@MISEQ753:114:000000000-D6365:1:1101:12254:19531;ATCGAT 1:N:0:ATCACG'
     '''
     
     readname = readname.split(' ')
@@ -69,9 +85,20 @@ def _is_pattern_sequence(pattern):
     '''
     (str) -> bool
     
-    :param pattern: Pattern to be extracted from reads
+    Returns True if all elements of pattern are valid nucleotides
     
-    Return True if all elements of pattern are valid nucleotides
+    parameters
+    ----------
+    - pattern (str): Pattern to be extracted from reads
+    
+    Examples
+    --------
+    >>> _is_pattern_sequence('(?<umi_1>.{3})AA')
+    False
+    >>> _is_pattern_sequence('ATCG')
+    True
+    >>> _is_pattern_sequence('ATCGNNNAX')
+    False
     '''
     
     return all(map(lambda x: x in 'atcgnATCGN', set(pattern)))
@@ -108,15 +135,32 @@ def _find_pattern_umi(pattern):
     return P        
     
 
-
-
-
 def _check_pattern_sequence(pattern):
     '''
+    (str) -> None
+   
+    Raise a ValueError if the string pattern does not look like NNN or NNNATCG
     
+    Parameters
+    ----------
+    - pattern (str): String sequence used for matching and extracting UMis from reads.
+                     Must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                     Spacer nucleotides following Ns are used for matching UMIs but are
+                     discarded from reads    
     
+    Examples
+    --------
+    
+    >>> _check_pattern_sequence('NNNatcgatc')
+    >>> _check_pattern_sequence('NNnnatcgatc')
+    ValueError: String pattern must look like NNNNATCG or NNNN
+    >>> _check_pattern_sequence('NNNNatcATCG')
+    >>> _check_pattern_sequence('NNNNatcATCGNNNN')
+    ValueError: String pattern must look like NNNNATCG or NNNN
+    >>> _check_pattern_sequence('atcATCGNNNN')
+    ValueError: String pattern must look like NNNNATCG or NNNN
     '''
-
+    
     P = _find_pattern_umi(pattern)
     if len(P) > 2 or len(P) == 0:
         raise ValueError('String pattern must look like NNNNATCG or NNNN')
@@ -132,6 +176,21 @@ def _check_extraction_mode(pattern, pattern2):
     '''
     (str | None, str | None) -> None
     
+    Raise a ValueError if pattern and pattern2 are not both a string sequence or a regex
+    
+    Parameters
+    ----------
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                             None if UMIs are extracted only from FASTQ 2 
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                              None if UMIs are extracted only from FASTQ 1.
+                              
+    Examples
+    --------    
+    >>> _check_extraction_mode('NNNATCG', 'NNNNGTCG')
+    >>>  _check_extraction_mode('NNNATCG', '(?<umi_1>.{3})AA')
+    ValueError: Both patterns must be either string sequences or regex
+    >>> _check_extraction_mode('(?<discard_1>.+)(?<umi_1>.{3})(?discard_2>TT)', '(?<umi_1>.{3})AA')
     '''
     
     if pattern and pattern2:
