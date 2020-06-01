@@ -530,10 +530,71 @@ def _get_read_patterns(pattern):
     return seq_extract, UMI, spacer, p
 
 
-
-
-
+def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in):
+    '''
+    (bool, bool)
     
+    
+    '''
+    
+    # initialize variables
+    r1_extracted, r2_extracted, r3_extracted = None, None, None
+    
+    if keep_extracted:
+        if inline_umi:
+            if pattern is not None:
+                r1_extracted = gzip.open(r1_out + '.extracted_sequences.R1.fastq.gz', 'wt')
+            if pattern2 is not None:
+                r2_extracted = gzip.open(r2_out + '.extracted_sequences.R2.fastq.gz', 'wt')
+        else:
+            if data == 'paired':
+                outdir = os.path.direname(r1_out)
+                filename = os.path.basename(r3_in)
+                outfile = os.path.join(outdir, filename + '.umi_sequences.R3.fastq.gz')
+                r3_extracted = gzip.open(outfile, 'wt')
+            elif data == 'single':
+                outdir = os.path.direname(r1_out)
+                filename = os.path.basename(r2_in)
+                outfile = os.path.join(outdir, filename + '.umi_sequences.R2.fastq.gz')
+                r2_extracted = gzip.open(outfile, 'wt')
+
+    return r1_extracted, r2_extracted, r3_extracted
+
+
+
+def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out):
+    '''
+    (str, bool, str, str | None) -> (str | None, str | None)
+    
+    Returns a tuple with fastq files opened for writing reads without matching
+    patterns if keep_discarded is True or a tuple with None if False.
+    Return a tuple with opened file and None if data is 'single'
+    Fastq files are written in the directory of r1_out and r2_out and are named
+    by appending '.non_matching_reads.RN.fastq.gz' to r1_out and r2_out
+    
+    Parameters
+    ----------
+    
+    - data (str): Indicates if single or paired end sequencing data
+    - keep_discarded (bool): Write reads without matching pattern to file if True
+    - r1_out (str): Path to the output fastq 1 with reads re-headered with UMI sequence 
+    - r2_out (str | None): Path to the output fastq 2 with reads re-headered with UMI sequence    
+                           None for single end read sequences
+    '''
+
+    # initialize variables
+    r1_discarded, r2_discarded = None, None
+    
+    # open optional files for writing. same directory as output fastqs
+    if keep_discarded:
+        if data == 'paired':
+            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
+            r2_discarded = gzip.open(r2_out + '.non_matching_reads.R2.fastq.gz', 'wt')
+        elif data == 'single':
+            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
+    
+    return r1_discarded, r2_discarded
+
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
@@ -574,40 +635,11 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
         r2_writer = None
     
     # open optional files for writing. same directory as output fastqs
-    if keep_discarded:
-        # initialize variables
-        r1_discarded, r2_discarded = None, None
-        if data == 'paired':
-            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
-            r2_discarded = gzip.open(r2_out + '.non_matching_reads.R2.fastq.gz', 'wt')
-        elif data == 'single':
-            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
-    else:
-        r1_discarded, r2_discarded = None, None
-    if keep_extracted:
-        # initialize variables
-        r1_extracted, r2_extracted, r3_extracted = None, None, None
-        if inline_umi:
-            if pattern is not None:
-                r1_extracted = gzip.open(r1_out + '.extracted_sequences.R1.fastq.gz', 'wt')
-            if pattern2 is not None:
-                r2_extracted = gzip.open(r2_out + '.extracted_sequences.R2.fastq.gz', 'wt')
-        else:
-            if data == 'paired':
-                outdir = os.path.direname(r1_out)
-                filename = os.path.basename(r3_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R3.fastq.gz')
-                r3_extracted = gzip.open(outfile, 'wt')
-            elif data == 'single':
-                outdir = os.path.direname(r1_out)
-                filename = os.path.basename(r2_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R2.fastq.gz')
-                r2_extracted = gzip.open(outfile, 'wt')
-    else:
-        r1_extracted, r2_extracted, r3_extracted = None, None, None
-        
-        
-        
+    # open files for writing reads without matching patterns
+    r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out)
+    # open files for writing reads with extracted sequences (UMI and discarded sequences)
+    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in)
+    
     # check that both patterns are either strings or regex
     _check_extraction_mode(pattern, pattern2)
     # get pattern variables for each read 
