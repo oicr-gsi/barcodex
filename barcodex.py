@@ -240,7 +240,34 @@ def _extract_from_sequence(read, UMI, spacer):
     (list, str, str) -> (str, str, str, str, str)
     
     Returns a tuple with the read sequence and qualities after barcode extraction,
-    the umi sequence, the extracted read sequence and qualities
+    the umi sequence, the read sequence and qualities extracted from read.
+    Or a tuple with empty strings when there is no match
+    
+    Parameters
+    ----------
+    - read (list): List of 4 strings from a single read
+    - UMI (str): UMI nucleotides are labeled with "N" (eg, NNNN)
+    - spacer (str): Spacer sequence following the UMI. Can be the empty string or
+                    any nucleotides from 'ATCGatcg'. Spacer sequences are extracted
+                    and discarded from reads 
+    
+    Examples
+    --------
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+',  '1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']
+    >>> _extract_from_sequence(read, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC')
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+    'TCATGTCTGCTA',
+    'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+    '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_from_sequence(read, 'NNNNNNNNNN', 'ATGGCATCG')
+    ('', '', '', '', '')
+    >>> _extract_from_sequence(read, 'NNNNNNNNNN', '')
+    ('TAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGC',
+     'TCATGTCTGC',
+     '1>1A1DDF11')
     '''
     
     # initialize variables
@@ -258,11 +285,60 @@ def _extract_from_sequence(read, UMI, spacer):
     return seq, qual, umi_seq, extracted_seq, extracted_qual
     
 
-
 def _extract_from_regex(read, p, full_match=False):
     '''
-    (list, _regex.Pattern, bool)
+    (list, _regex.Pattern, bool) -> (str, str, str, str, str)
+
+    Returns a tuple with the read sequence and qualities after barcode extraction,
+    the umi sequence, the read sequence and qualities extracted from read
+    Or a tuple with empty strings when there is no match
     
+    Parameters
+    ----------
+    - read (list): List of 4 strings from a single read
+    - p (_regex.Pattern): Compiled regex pattern used for matching pattern in read sequence
+    - full_match (bool): True if the regular expression needs to match the entire read sequence 
+    
+    Examples
+    --------
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+',  '1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']
+    # UMI starts at the beginning of the read
+    >>> _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), full_match=False)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    # match the entire read sequence
+    >>> _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), full_match=True)
+    ('', '', '', '', '')
+    # contruct the regex to match the entire read sequence
+    _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)[ATCG]*'), full_match=True)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    
+    # UMI does not start at the beginning of the read
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'ATCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+', 'B1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']    
+    # first nucleotide is part of the new read sequence
+    >>> _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), full_match=False)
+    ('ATAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'BG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    # force UMI to start at the beginning of the read sequence
+    >>> _extract_from_regex(read, regex.compile('(?<umi_1>^.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), full_match=False)
+    ('', '', '', '', '')
+    # discard nuceotides upstream of UMI
+    >>> _extract_from_regex(read, regex.compile('(?<discard_1>.*)(?<umi_1>.{12})(?<discard_2>ATGGGAAAGAGTGTCC)'), full_match=False)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'ATCATGTCTGCTAATGGGAAAGAGTGTCC',
+     'B1>1A1DDF11DBDGFFA111111D1FEE')
     '''
     
     # initialize variables
@@ -274,7 +350,7 @@ def _extract_from_regex(read, p, full_match=False):
         m = p.search(read[1])
     elif full_match == True:
         # match if the whole string matches pattern 
-        m = full_match(read[1])
+        m = p.fullmatch(read[1])
     # process if match is found
     if m:
         # collect umi, discard positions
@@ -475,7 +551,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # use whitelist
     # add docstrings
     # add test cases
-    
+   
     
     
     # check input and output parameters
