@@ -271,9 +271,7 @@ def _extract_from_regex(read, p, full_match=False):
         umi_pos.sort()
         discard_pos.sort()
         # get umi sequences
-        umi_seq = ''
-        for i in umi_pos:
-            umi_seq += read[1][i[0]:i[1]]
+        umi_seq = ''.join([read[1][i[0]:i[1]] for i in umi_pos])
         # get indices of extracted sequences
         extracted_pos = sorted(umi_pos + discard_pos)
         # get indices of remaining sequence
