@@ -240,7 +240,33 @@ def _extract_from_sequence(read, UMI, spacer):
     (list, str, str) -> (str, str, str, str, str)
     
     Returns a tuple with the read sequence and qualities after barcode extraction,
-    the umi sequence, the extracted read sequence and qualities
+    the umi sequence, the read sequence and qualities extracted from read
+    
+    Parameters
+    ----------
+    - read (list): List of 4 strings from a single read
+    - UMI (str): UMI nucleotides are labeled with "N" (eg, NNNN)
+    - spacer (str): Spacer sequence following the UMI. Can be the empty string or
+                    any nucleotides from 'ATCGatcg'. Spacer sequences are extracted
+                    and discarded from reads 
+    
+    Examples
+    --------
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+',  '1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']
+    >>> _extract_from_sequence(read, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC')
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+    'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+    'TCATGTCTGCTA',
+    'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+    '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_from_sequence(read, 'NNNNNNNNNN', 'ATGGCATCG')
+    ('', '', '', '', '')
+    >>> _extract_from_sequence(read, 'NNNNNNNNNN', '')
+    ('TAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGC',
+     'TCATGTCTGC',
+     '1>1A1DDF11')
     '''
     
     # initialize variables
