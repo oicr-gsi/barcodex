@@ -404,7 +404,7 @@ def _check_fastq_sync(L):
     '''
     (list) -> None
     
-    Raise a ValueError if the reads in L do not have the same readname
+    Raise a ValueError if the read headers in L are not from the same paired reads
     (ie, if the fastqs the reads originate from are not synced)
     
     Parameters
@@ -477,27 +477,7 @@ def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=Tru
         if pattern2 is not None:
             raise ValueError('Expecting paired end sequences with out of read UMIs. Pattern2 not needed')
  
-    
-def _convert_arg_to_bool(argument):
-    '''
-    (str) -> bool
-    
-    "param argument: Argument of a parameter that should be a boolean
-    
-    Return the argument as a boolean 
-    '''
-    
-    if isinstance(argument, bool):
-       return argument
-    elif argument.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif argument.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise ValueError('ERR: {0} is expected to be a boolean'.format(argument))
-        
-    
-     
+         
 def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
     '''
     (list, bool, str | None, str | None, _regex.Pattern | None, bool) -> (str, str, str, str, str)
