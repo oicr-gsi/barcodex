@@ -404,7 +404,21 @@ def _check_fastq_sync(L):
     '''
     (list) -> None
     
+    Raise a ValueError if the reads in L do not have the same readname
+    (ie, if the fastqs the reads originate from are not synced)
     
+    Parameters
+    ----------
+    
+    - a list of read headers
+    
+    Examples
+    --------
+    >>> _check_fastq_sync(['@MISEQ753:114:000000000-D6365:1:1101:15443:1350 1:N:0:ATCACG\n',
+    '@MISEQ753:114:000000000-D6365:1:1101:15443:1350 2:N:0:ATCACG\n'])
+    >>> _check_fastq_sync(['@MISEQ753:114:000000000-D6378:1:1102:15450:1350 1:N:0:ATCGGG\n',
+    '@MISEQ753:114:000000000-D6365:1:1101:15443:1350 2:N:0:ATCACG\n'])
+    ValueError: Fastqs are not synced
     '''
     
     readnames = []
@@ -545,7 +559,6 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
     # option to output to fastq or gzip compressed fastq.gz
-    # option of compression level
     # run as module and script
     # handle umis not in line with read
     # use whitelist
