@@ -317,7 +317,7 @@ def _extract_from_regex(read, p, full_match=False):
         m = p.search(read[1])
     elif full_match == True:
         # match if the whole string matches pattern 
-        m = full_match(read[1])
+        m = p.fullmatch(read[1])
     # process if match is found
     if m:
         # collect umi, discard positions
