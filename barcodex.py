@@ -204,10 +204,27 @@ def _get_umi_spacer(pattern):
     '''
     (str) -> (str, str)
     
-    :param pattern: A string sequence with UMI nucleotides as Ns and optional
-                    spacer sequence. Pattern must look like NNNNATCG or NNNN
-
-    Return the UMI and spacer sequences in pattern 
+    Returns the UMI and spacer sequences in pattern
+    
+    Parameters
+    ----------
+    - pattern (str): String sequence used for matching and extracting UMis from reads.
+                     Must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                     Spacer nucleotides following Ns are used for matching UMIs but are
+                     discarded from reads    
+    
+    Examples
+    --------
+    >>> _get_umi_spacer('NNNNAAAA')
+    ('NNNN', 'AAAA')
+    >>> _get_umi_spacer('NNNN')
+    ('NNNN', '')
+    >>> _get_umi_spacer('AAATCGC')
+    ('AAATCGC', '')
+    >>> _get_umi_spacer('AAATCGCNNN')
+    ('AAATCGC', 'NNN')
+    >>> _get_umi_spacer('NNNAAATCGCNNN')
+    ('NNN', 'AAATCGC')
     '''
         
     P = _find_pattern_umi(pattern)
@@ -271,9 +288,7 @@ def _extract_from_regex(read, p, full_match=False):
         umi_pos.sort()
         discard_pos.sort()
         # get umi sequences
-        umi_seq = ''
-        for i in umi_pos:
-            umi_seq += read[1][i[0]:i[1]]
+        umi_seq = ''.join([read[1][i[0]:i[1]] for i in umi_pos])
         # get indices of extracted sequences
         extracted_pos = sorted(umi_pos + discard_pos)
         # get indices of remaining sequence
