@@ -108,10 +108,26 @@ def _find_pattern_umi(pattern):
     '''
     (str) -> list
 
-    :param pattern: A string sequence with UMI nucleotides as Ns and optional
-                    spacer sequence. Pattern must look like NNNNATCG or NNNN
-
     Returns a list with UMI sequence and eventually the spacer sequence
+
+    Parameters
+    ----------
+    - pattern (str): String sequence used for matching and extracting UMis from reads.
+                     Must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                     Spacer nucleotides following Ns are used for matching UMIs but are
+                     discarded from reads    
+    Examples
+    --------
+    >>> _find_pattern_umi('NNNNATCG')
+    ['NNNN', 'ATCG']
+    >>> _find_pattern_umi('NNNNATCGNNN')
+    ['NNNN', 'ATCG', 'NNN']
+    >>> _find_pattern_umi('ATCGNNN')
+    ['ATCG', 'NNN']
+    >>> _find_pattern_umi('ATCG')
+    ['ATCG']
+    >>> _find_pattern_umi('NNNN')
+    ['NNNN']
     '''
 
     # separate UMI and spacer from pattern
@@ -313,7 +329,7 @@ def _extract_from_regex(read, p, full_match=False):
     >>> _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), full_match=True)
     ('', '', '', '', '')
     # contruct the regex to match the entire read sequence
-    _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)[ATCG]*'), full_match=True)
+    >>> _extract_from_regex(read, regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)[ATCG]*'), full_match=True)
     ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
      'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
      'TCATGTCTGCTA',
@@ -368,22 +384,17 @@ def _extract_from_regex(read, p, full_match=False):
         # get indices of extracted sequences
         extracted_pos = sorted(umi_pos + discard_pos)
         # get indices of remaining sequence
-        removed = []
-        for i in umi_pos + discard_pos:
-            removed.extend(list(range(i[0], i[1])))
+        removed = [i for j in umi_pos + discard_pos for i in list(range(j[0], j[1]))]
         remaining = sorted([i for i in range(len(read[1])) if i not in removed])
         
         # get extracted sequence and qualities
-        extracted_seq, extracted_qual = '', ''
-        for i in extracted_pos:
-            extracted_seq += read[1][i[0]: i[1]]
-            extracted_qual += read[3][i[0]: i[1]]
-        # get read seq and qual after extraction
-        seq, qual = '', ''
-        for i in remaining:
-            seq += read[1][i]
-            qual += read[3][i]
+        extracted_seq = ''.join([read[1][i[0]: i[1]] for i in extracted_pos])
+        extracted_qual = ''.join([read[3][i[0]: i[1]] for i in extracted_pos])
         
+        # get read seq and qual after extraction
+        seq = ''.join([read[1][i] for i in remaining])
+        qual = ''.join([read[3][i] for i in remaining])
+           
     return seq, qual, umi_seq, extracted_seq, extracted_qual
 
 
@@ -404,7 +415,21 @@ def _check_fastq_sync(L):
     '''
     (list) -> None
     
+    Raise a ValueError if the read headers in L are not from the same paired reads
+    (ie, if the fastqs the reads originate from are not synced)
     
+    Parameters
+    ----------
+    
+    - a list of read headers
+    
+    Examples
+    --------
+    >>> _check_fastq_sync(['@MISEQ753:114:000000000-D6365:1:1101:15443:1350 1:N:0:ATCACG\n',
+    '@MISEQ753:114:000000000-D6365:1:1101:15443:1350 2:N:0:ATCACG\n'])
+    >>> _check_fastq_sync(['@MISEQ753:114:000000000-D6378:1:1102:15450:1350 1:N:0:ATCGGG\n',
+    '@MISEQ753:114:000000000-D6365:1:1101:15443:1350 2:N:0:ATCACG\n'])
+    ValueError: Fastqs are not synced
     '''
     
     readnames = []
@@ -463,27 +488,7 @@ def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=Tru
         if pattern2 is not None:
             raise ValueError('Expecting paired end sequences with out of read UMIs. Pattern2 not needed')
  
-    
-def _convert_arg_to_bool(argument):
-    '''
-    (str) -> bool
-    
-    "param argument: Argument of a parameter that should be a boolean
-    
-    Return the argument as a boolean 
-    '''
-    
-    if isinstance(argument, bool):
-       return argument
-    elif argument.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif argument.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise ValueError('ERR: {0} is expected to be a boolean'.format(argument))
-        
-    
-     
+         
 def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
     '''
     (list, bool, str | None, str | None, _regex.Pattern | None, bool) -> (str, str, str, str, str)
@@ -545,7 +550,6 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
     # option to output to fastq or gzip compressed fastq.gz
-    # option of compression level
     # run as module and script
     # handle umis not in line with read
     # use whitelist
