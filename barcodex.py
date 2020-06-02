@@ -402,16 +402,16 @@ def _get_read(fastq_file):
     """
     (_io.TextIOWrapper) -- > itertools.zip_longest
    
-    
-    
-    :param fastq_file: a fastq file open for reading in plain text mode
-    
     Returns an iterator slicing the fastq into 4-line reads.
     Each element of the iterator is a tuple containing read information
+    
+    Parameters
+    ----------
+    
+    - fastq_file (_io.TextIOWrapper): Fastq file opened for reading in plain text mode
     """
     args = [iter(fastq_file)] * 4
     return zip_longest(*args, fillvalue=None)
-
 
 
 def _check_fastq_sync(L):
@@ -626,9 +626,30 @@ def _open_fastq_writing(output_file, compressed):
 
 def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed):
     '''
-    (bool, bool)
+    (keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
+    Returns a tuple with fastq files opened for writing extracted sequences 
+    (UMIs and discarded sequences) if keep_discarded is True or a tuple with None if False.
+    Each element of the tuple can be be a file handle for writing or None depending of arguments.
+    Fastq files are written in the directory of r1_out and r2_out and are named
+    by appending '.extracted_sequences.RN.fastq.gz' to r1_out and r2_out
     
+    Parameters
+    ----------
+    
+    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1
+                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2
+                              None if UMIs are extracted only from FASTQ 1 for paired end sequences
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                            None for single end read sequences
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs
+    - compressed (bool): output fastqs are compressed with gzip if True
     '''
     
     # initialize variables
@@ -658,7 +679,7 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
 
 def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed):
     '''
-    (str, bool, str, str | None, bool) -> (str | None, str | None)
+    (str, bool, str, str | None, bool) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
     Returns a tuple with fastq files opened for writing reads without matching
     patterns if keep_discarded is True or a tuple with None if False.
