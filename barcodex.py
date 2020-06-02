@@ -705,7 +705,6 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # to do/things to consider
     # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
-    # option to output to fastq or gzip compressed fastq.gz
     # run as module and script
     # handle umis not in line with read
     # use whitelist
@@ -847,11 +846,12 @@ if __name__ == '__main__':
     e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_false', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    e_parser.add_argument('--compressed', dest='compressed', action='store_false', help='Compress output fastqs with gzip. True if activated')
     
     args = parser.parse_args()
     extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
         
 
     
