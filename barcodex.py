@@ -401,6 +401,9 @@ def _extract_from_regex(read, p, full_match=False):
 def _get_read(fastq_file):
     """
     (_io.TextIOWrapper) -- > itertools.zip_longest
+   
+    
+    
     :param fastq_file: a fastq file open for reading in plain text mode
     
     Returns an iterator slicing the fastq into 4-line reads.
@@ -476,25 +479,93 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
 
 def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=True):
     '''
+    (str | None, str | None, str, bool) -> None
     
+    Raise ValueError if pattern options are incompatible with single or paired
+    sequencing data
     
+    Parameters
+    ----------
+    
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                            None if UMIs are extracted only from FASTQ 2 
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                              None if UMIs are extracted only from FASTQ 1.
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    
+    Examples
+    --------    
+    >>> _check_pattern_options('NNNATCG', pattern2=None, data='single', inline_umi=False)
+    >>> _check_pattern_options('NNNATCG', pattern2='ATCG', data='paired', inline_umi=False)
+    ValueError: Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed
+    >>> _check_pattern_options('NNNATCG', pattern2='ATCG', data='paired', inline_umi=True)
+    >>> _check_pattern_options(None, pattern2='ATCG', data='paired', inline_umi=True)
+    >>> _check_pattern_options(None, pattern2=None, data='paired', inline_umi=True)
+    ValueError: Expecting paired end sequences with inline UMIs. At least 1 pattern is required
+    >>> _check_pattern_options(None, pattern2='ATCG', data='paired', inline_umi=False)
+    ValueError: Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed
+    >>> _check_pattern_options(None, pattern2='ATCG', data='single', inline_umi=False)
+    ValueError: Expecting single end sequences. Pattern required, pattern2 not needed
     '''
+        
+    if data == 'single':
+        # expecting pattern but not pattern2
+        if pattern2 or pattern is None:
+            raise ValueError('Expecting single end sequences. Pattern required, pattern2 not needed')
+    else:
+        if inline_umi:
+            # pattern is optional for paired end data with inline UMIs if pattern2 present
+            if pattern is None and pattern2 is None:
+                raise ValueError('Expecting paired end sequences with inline UMIs. At least 1 pattern is required')
+        else:
+            # pattern required for for non-inline UMI. pattern2 not needed
+            if pattern is None or pattern2 is not None:
+                raise ValueError('Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed')
     
-    
-    if pattern is None and pattern2 is None:
-        raise ValueError('At least 1 pattern is required')
-    if not inline_umi:
-        # pattern2 not needed
-        if pattern2 is not None:
-            raise ValueError('Expecting paired end sequences with out of read UMIs. Pattern2 not needed')
- 
          
 def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
     '''
     (list, bool, str | None, str | None, _regex.Pattern | None, bool) -> (str, str, str, str, str)
     
     
+    Returns a tuple with the read sequence and qualities after barcode extraction
+    with a string pattern or a regex, the umi sequence, the read sequence and qualities
+    extracted from read. Or a tuple with empty strings when there is no match
     
+    Parameters
+    ----------
+    - read (list): List of 4 strings from a single read
+    - UMI (str | None): UMI nucleotides are labeled with "N" (eg, NNNN)
+    - spacer (str | None): Spacer sequence following the UMI. Can be the empty string or
+                           any nucleotides from 'ATCGatcg'. Spacer sequences are extracted
+                           and discarded from reads 
+    - p (_regex.Pattern | None): Compiled regex pattern used for matching pattern in read sequence
+    - full_match (bool): True if the regular expression needs to match the entire read sequence 
+    
+    Examples
+    --------
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+',  '1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']
+    >>> _extract_umi_from_read(read, True, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', None, True)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, True, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?P<umi_1>.{3})(?P<discard_1>.{2})'), True)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, False, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), False)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, False, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), True)
+    ('', '', '', '', '')
     '''
     
     if seq_extract == True:
@@ -530,7 +601,30 @@ def _get_read_patterns(pattern):
     return seq_extract, UMI, spacer, p
 
 
-def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in):
+def _open_fastq_writing(output_file, compressed):
+    '''
+    (str, bool) -> _io.TextIOWrapper
+    
+    Returns a file handler for writing to output_file. The output_file is compressed
+    with gzip (highest compression, level 9),  if compressed is True or is in 
+    plain text file if False.
+    
+    Parameters
+    ----------
+    
+    - output_file (str): Path to the output_file
+    - compressed (bool): output_file is compressed with gzip if True 
+    '''
+    
+    if compressed:
+        newfile = gzip.open(output_file, 'wt')
+    else:
+        newfile = open(output_file, 'w')
+    return newfile
+
+
+
+def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed):
     '''
     (bool, bool)
     
@@ -543,28 +637,28 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
     if keep_extracted:
         if inline_umi:
             if pattern is not None:
-                r1_extracted = gzip.open(r1_out + '.extracted_sequences.R1.fastq.gz', 'wt')
+                r1_extracted = _open_fastq_writing(r1_out + '.extracted_sequences.R1.fastq.gz', compressed)
             if pattern2 is not None:
-                r2_extracted = gzip.open(r2_out + '.extracted_sequences.R2.fastq.gz', 'wt')
+                r2_extracted = _open_fastq_writing(r2_out + '.extracted_sequences.R2.fastq.gz', compressed)
         else:
             if data == 'paired':
                 outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r3_in)
                 outfile = os.path.join(outdir, filename + '.umi_sequences.R3.fastq.gz')
-                r3_extracted = gzip.open(outfile, 'wt')
+                r3_extracted = _open_fastq_writing(outfile, compressed)
             elif data == 'single':
                 outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r2_in)
                 outfile = os.path.join(outdir, filename + '.umi_sequences.R2.fastq.gz')
-                r2_extracted = gzip.open(outfile, 'wt')
+                r2_extracted = _open_fastq_writing(outfile, compressed)
 
     return r1_extracted, r2_extracted, r3_extracted
 
 
 
-def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out):
+def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed):
     '''
-    (str, bool, str, str | None) -> (str | None, str | None)
+    (str, bool, str, str | None, bool) -> (str | None, str | None)
     
     Returns a tuple with fastq files opened for writing reads without matching
     patterns if keep_discarded is True or a tuple with None if False.
@@ -580,6 +674,7 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out):
     - r1_out (str): Path to the output fastq 1 with reads re-headered with UMI sequence 
     - r2_out (str | None): Path to the output fastq 2 with reads re-headered with UMI sequence    
                            None for single end read sequences
+    - compressed (bool): output_files r1_out and r2_out are compressed with gzip if True
     '''
 
     # initialize variables
@@ -588,17 +683,17 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out):
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
         if data == 'paired':
-            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
-            r2_discarded = gzip.open(r2_out + '.non_matching_reads.R2.fastq.gz', 'wt')
+            r1_discarded = _open_fastq_writing(r1_out + '.non_matching_reads.R1.fastq.gz', compressed)
+            r2_discarded = _open_fastq_writing(r2_out + '.non_matching_reads.R2.fastq.gz', compressed)
         elif data == 'single':
-            r1_discarded = gzip.open(r1_out + '.non_matching_reads.R1.fastq.gz', 'wt')
+            r1_discarded = _open_fastq_writing(r1_out + '.non_matching_reads.R1.fastq.gz', compressed)
     
     return r1_discarded, r2_discarded
 
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
-                     r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_'):
+                     r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True):
     """
 
 
@@ -628,17 +723,14 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, [r1_in, r2_in, r3_in]))
     
     # open outfiles for writing
-    r1_writer = gzip.open(r1_out, 'wt')
-    if data == 'paired' and r2_out:
-        r2_writer = gzip.open(r2_out, "wt")
-    else:
-        r2_writer = None
+    r1_writer = _open_fastq_writing(r1_out, compressed)
+    r2_writer = _open_fastq_writing(r2_out, compressed) if data == 'paired' and r2_out else None
     
     # open optional files for writing. same directory as output fastqs
     # open files for writing reads without matching patterns
-    r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out)
+    r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
     # open files for writing reads with extracted sequences (UMI and discarded sequences)
-    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in)
+    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed)
     
     # check that both patterns are either strings or regex
     _check_extraction_mode(pattern, pattern2)
