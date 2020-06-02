@@ -608,10 +608,37 @@ def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):
 
 def _get_read_patterns(pattern):
     '''
+    (str) -> (bool, str | None, str | None, _regex.Pattern | None)
     
+    Returns a tuple with pattern parameters for finding UMIs in read sequence:
+    - a boolean indicating whether UMI is extracted with a string pattern or regex
+    (or None if pattern is not defined)
+    - the UMI sequence (labeled as Ns or None)
+    - the spacer sequence (empty string, ATCGNatcgN nucleotides or None)
+    - a regex pattern or None
     
+    Parameters
+    ----------
+    
+    - pattern (str): String sequence or regular expression used for matching and extracting UMis from reads
+
+    Examples
+    --------    
+    >>> _get_read_patterns('NNNN')
+    (True, 'NNNN', '', None)
+    >>> _get_read_patterns('NNNNATCGA')
+    (True, 'NNNN', 'ATCGA', None)
+    >>> _get_read_patterns('NNNNATCGANNN')
+    (True, 'NNNN', 'ATCGA', None)
+    >>> _get_read_patterns('(?<umi_1>.{3})')
+    (False, None, None, regex.Regex('(?<umi_1>.{3})', flags=regex.V0))
+    >>> _get_read_patterns('(?<discard_1>.*)(?<umi_1>.{3})(?<discard_2>TT)')
+    (False, None, None, regex.Regex('(?<discard_1>.*)(?<umi_1>.{3})(?<discard_2>TT)', flags=regex.V0))
+    >>> _get_read_patterns(None)
+    (None, None, None, None)
+    >>> _get_read_patterns('')
+    (None, None, None, None)
     '''
-    
     
     # initialize variables
     seq_extract, UMI, spacer, p = None, None, None, None
@@ -772,14 +799,12 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     - compressed (bool): output fastqs are compressed with gzip if True
     '''
     
-    # to do/things to consider
     # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
     # run as module and script
     # handle umis not in line with read
     # use whitelist
-    # add docstrings
-    
+        
    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
