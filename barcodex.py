@@ -662,15 +662,14 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
             if pattern2 is not None:
                 r2_extracted = _open_fastq_writing(r2_out + '.extracted_sequences.R2.fastq.gz', compressed)
         else:
+            outdir = os.path.direname(r1_out)
             if data == 'paired':
-                outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r3_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R3.fastq.gz')
+                outfile = os.path.join(outdir, filename + '.extracted_sequences.R3.fastq.gz')
                 r3_extracted = _open_fastq_writing(outfile, compressed)
             elif data == 'single':
-                outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r2_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R2.fastq.gz')
+                outfile = os.path.join(outdir, filename + '.extracted_sequences.R2.fastq.gz')
                 r2_extracted = _open_fastq_writing(outfile, compressed)
 
     return r1_extracted, r2_extracted, r3_extracted
