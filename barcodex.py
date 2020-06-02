@@ -694,13 +694,34 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True):
-    """
+    '''
+    (str, str, str | None, str | None, bool, str, bool, bool, str | None, str | None, str | None, bool, str, bool) -> None
 
-
-
-
-
-    """
+    Parameters
+    ----------
+    
+    - r1_in (str): Path to the input FASTQ 1 (compressed or not)
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 1 for paired end sequences
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - data (str): Indicates if single or paired end sequencing data
+    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
+    - keep_discarded (bool): Write reads without matching pattern to file if True
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                           None for single end read sequences
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs 
+    - full_match (bool): True if the regular expression needs to match the entire read sequence
+    - separator (str): String separating the UMI sequence and part of the read header
+    - compressed (bool): output fastqs are compressed with gzip if True
+    '''
     
     # to do/things to consider
     # remove extension before appending discarded or extracted extension
@@ -711,8 +732,6 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # add docstrings
     # add test cases
    
-    
-    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
     # check pattern parameters 
@@ -853,7 +872,4 @@ if __name__ == '__main__':
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
                      r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
         
-
-    
-
-    
+ 
