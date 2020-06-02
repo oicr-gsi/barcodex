@@ -402,16 +402,16 @@ def _get_read(fastq_file):
     """
     (_io.TextIOWrapper) -- > itertools.zip_longest
    
-    
-    
-    :param fastq_file: a fastq file open for reading in plain text mode
-    
     Returns an iterator slicing the fastq into 4-line reads.
     Each element of the iterator is a tuple containing read information
+    
+    Parameters
+    ----------
+    
+    - fastq_file (_io.TextIOWrapper): Fastq file opened for reading in plain text mode
     """
     args = [iter(fastq_file)] * 4
     return zip_longest(*args, fillvalue=None)
-
 
 
 def _check_fastq_sync(L):
@@ -445,8 +445,37 @@ def _check_fastq_sync(L):
 def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
                         r2_in=None, r2_out=None, r3_in=None):
     '''
+    (str, str, str, bool, str | None, str | None, str | None) -> None
     
+    Raises a ValueError if input / output fastqs are not compatible with paired
+    or single end sequencing data and with inline UMIs or UMIs in separate fastq.
     
+    Parameters
+    ----------
+    
+    - r1_in (str): Path to the input FASTQ 1 (compressed or not) 
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs
+    
+    Examples
+    --------
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in=None, r2_out=None, r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in=None, r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in=None, r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with out of read UMIs. Paths to r1 I/O and r2 input fastqs required
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in='infile_2.fastq', r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with out of read UMIs. Paths to r2 output and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in='infile_2.fastq', r2_out=None, r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in='infile_2.fastq', r2_out=None, r3_in=None)
+    ValueError: Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='paired', inline_umi=True, r2_in='infile_2.fastq', r2_out='outputfile_2.fastq', r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='paired', inline_umi=True, r2_in='infile_2.fastq', r2_out='outputfile_2.fastq', r3_in='inputfile_3.fastq')
+    ValueError: Expecting paired end sequences with inline UMIs. Paths to r1 and r2 I/O fastqs required. Path to r3 input not needed
     '''
     
     if data == 'paired':
@@ -626,9 +655,30 @@ def _open_fastq_writing(output_file, compressed):
 
 def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed):
     '''
-    (bool, bool)
+    (keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
+    Returns a tuple with fastq files opened for writing extracted sequences 
+    (UMIs and discarded sequences) if keep_discarded is True or a tuple with None if False.
+    Each element of the tuple can be be a file handle for writing or None depending of arguments.
+    Fastq files are written in the directory of r1_out and r2_out and are named
+    by appending '.extracted_sequences.RN.fastq.gz' to r1_out and r2_out
     
+    Parameters
+    ----------
+    
+    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1
+                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2
+                              None if UMIs are extracted only from FASTQ 1 for paired end sequences
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                            None for single end read sequences
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs
+    - compressed (bool): output fastqs are compressed with gzip if True
     '''
     
     # initialize variables
@@ -641,15 +691,14 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
             if pattern2 is not None:
                 r2_extracted = _open_fastq_writing(r2_out + '.extracted_sequences.R2.fastq.gz', compressed)
         else:
+            outdir = os.path.direname(r1_out)
             if data == 'paired':
-                outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r3_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R3.fastq.gz')
+                outfile = os.path.join(outdir, filename + '.extracted_sequences.R3.fastq.gz')
                 r3_extracted = _open_fastq_writing(outfile, compressed)
             elif data == 'single':
-                outdir = os.path.direname(r1_out)
                 filename = os.path.basename(r2_in)
-                outfile = os.path.join(outdir, filename + '.umi_sequences.R2.fastq.gz')
+                outfile = os.path.join(outdir, filename + '.extracted_sequences.R2.fastq.gz')
                 r2_extracted = _open_fastq_writing(outfile, compressed)
 
     return r1_extracted, r2_extracted, r3_extracted
@@ -658,7 +707,7 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
 
 def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed):
     '''
-    (str, bool, str, str | None, bool) -> (str | None, str | None)
+    (str, bool, str, str | None, bool) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
     Returns a tuple with fastq files opened for writing reads without matching
     patterns if keep_discarded is True or a tuple with None if False.
@@ -694,26 +743,44 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True):
-    """
+    '''
+    (str, str, str | None, str | None, bool, str, bool, bool, str | None, str | None, str | None, bool, str, bool) -> None
 
-
-
-
-
-    """
+    Parameters
+    ----------
+    
+    - r1_in (str): Path to the input FASTQ 1 (compressed or not)
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 1 for paired end sequences
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - data (str): Indicates if single or paired end sequencing data
+    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
+    - keep_discarded (bool): Write reads without matching pattern to file if True
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                           None for single end read sequences
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs 
+    - full_match (bool): True if the regular expression needs to match the entire read sequence
+    - separator (str): String separating the UMI sequence and part of the read header
+    - compressed (bool): output fastqs are compressed with gzip if True
+    '''
     
     # to do/things to consider
     # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
-    # option to output to fastq or gzip compressed fastq.gz
     # run as module and script
     # handle umis not in line with read
     # use whitelist
     # add docstrings
-    # add test cases
+    
    
-    
-    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
     # check pattern parameters 
@@ -847,13 +914,11 @@ if __name__ == '__main__':
     e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_false', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    e_parser.add_argument('--compressed', dest='compressed', action='store_false', help='Compress output fastqs with gzip. True if activated')
     
     args = parser.parse_args()
     extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
         
-
-    
-
-    
+ 
