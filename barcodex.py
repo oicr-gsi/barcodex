@@ -629,10 +629,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     
     # open outfiles for writing
     r1_writer = gzip.open(r1_out, 'wt')
-    if data == 'paired' and r2_out:
-        r2_writer = gzip.open(r2_out, "wt")
-    else:
-        r2_writer = None
+    r2_writer = gzip.open(r2_out, "wt") if data == 'paired' and r2_out else None
     
     # open optional files for writing. same directory as output fastqs
     # open files for writing reads without matching patterns
