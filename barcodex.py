@@ -445,8 +445,37 @@ def _check_fastq_sync(L):
 def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
                         r2_in=None, r2_out=None, r3_in=None):
     '''
+    (str, str, str, bool, str | None, str | None, str | None) -> None
     
+    Raises a ValueError if input / output fastqs are not compatible with paired
+    or single end sequencing data and with inline UMIs or UMIs in separate fastq.
     
+    Parameters
+    ----------
+    
+    - r1_in (str): Path to the input FASTQ 1 (compressed or not) 
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - r2_in (str or None): Path to the input FASTQ 2 (compressed or not)
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence
+    - r3_in (str or None): Path to input FASTQ 3 for paired end sequences with non-inline UMIs
+    
+    Examples
+    --------
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in=None, r2_out=None, r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in=None, r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in=None, r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with out of read UMIs. Paths to r1 I/O and r2 input fastqs required
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in='infile_2.fastq', r2_out=None, r3_in='infile_3.fastq')
+    ValueError: Expecting single end sequences with out of read UMIs. Paths to r2 output and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=False, r2_in='infile_2.fastq', r2_out=None, r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='single', inline_umi=True, r2_in='infile_2.fastq', r2_out=None, r3_in=None)
+    ValueError: Expecting single end sequences with inline UMIs. Paths to r1 I/O fastqs required. Paths to r2 I/O fastqs and r3 input fastq not needed
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='paired', inline_umi=True, r2_in='infile_2.fastq', r2_out='outputfile_2.fastq', r3_in=None)
+    >>> _check_input_output('infile_1.fastq', 'outputfile_1.fastq', data='paired', inline_umi=True, r2_in='infile_2.fastq', r2_out='outputfile_2.fastq', r3_in='inputfile_3.fastq')
+    ValueError: Expecting paired end sequences with inline UMIs. Paths to r1 and r2 I/O fastqs required. Path to r3 input not needed
     '''
     
     if data == 'paired':
@@ -750,7 +779,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # handle umis not in line with read
     # use whitelist
     # add docstrings
-    # add test cases
+    
    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
