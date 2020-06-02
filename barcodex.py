@@ -401,6 +401,9 @@ def _extract_from_regex(read, p, full_match=False):
 def _get_read(fastq_file):
     """
     (_io.TextIOWrapper) -- > itertools.zip_longest
+   
+    
+    
     :param fastq_file: a fastq file open for reading in plain text mode
     
     Returns an iterator slicing the fastq into 4-line reads.
@@ -476,7 +479,27 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
 
 def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=True):
     '''
+    (str | None, str | None, str, bool) -> None
     
+    Raise ValueError if pattern options are incompatible with single or paired
+    sequencing data
+    
+    Parameters
+    ----------
+    
+    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                            None if UMIs are extracted only from FASTQ 2 
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                              None if UMIs are extracted only from FASTQ 1.
+    - data (str): Indicates if single or paired end sequencing data
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    
+    Examples
+    --------    
+    
+
+    
+        
     
     '''
     
@@ -494,7 +517,43 @@ def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):
     (list, bool, str | None, str | None, _regex.Pattern | None, bool) -> (str, str, str, str, str)
     
     
+    Returns a tuple with the read sequence and qualities after barcode extraction
+    with a string pattern or a regex, the umi sequence, the read sequence and qualities
+    extracted from read. Or a tuple with empty strings when there is no match
     
+    Parameters
+    ----------
+    - read (list): List of 4 strings from a single read
+    - UMI (str | None): UMI nucleotides are labeled with "N" (eg, NNNN)
+    - spacer (str | None): Spacer sequence following the UMI. Can be the empty string or
+                           any nucleotides from 'ATCGatcg'. Spacer sequences are extracted
+                           and discarded from reads 
+    - p (_regex.Pattern | None): Compiled regex pattern used for matching pattern in read sequence
+    - full_match (bool): True if the regular expression needs to match the entire read sequence 
+    
+    Examples
+    --------
+    read = ['@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:', 'TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT', '+',  '1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################']
+    >>> _extract_umi_from_read(read, True, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', None, True)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, True, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?P<umi_1>.{3})(?P<discard_1>.{2})'), True)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, False, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), False)
+    ('TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT',
+     'G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB##################################################',
+     'TCATGTCTGCTA',
+     'TCATGTCTGCTAATGGGAAAGAGTGTCC',
+     '1>1A1DDF11DBDGFFA111111D1FEE')
+    >>> _extract_umi_from_read(read, False, 'NNNNNNNNNNNN', 'ATGGGAAAGAGTGTCC', regex.compile('(?<umi_1>.{12})(?<discard_1>ATGGGAAAGAGTGTCC)'), True)
+    ('', '', '', '', '')
     '''
     
     if seq_extract == True:
