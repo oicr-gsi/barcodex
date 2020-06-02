@@ -496,21 +496,33 @@ def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=Tru
     
     Examples
     --------    
-    
-
-    
-        
-    
+    >>> _check_pattern_options('NNNATCG', pattern2=None, data='single', inline_umi=False)
+    >>> _check_pattern_options('NNNATCG', pattern2='ATCG', data='paired', inline_umi=False)
+    ValueError: Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed
+    >>> _check_pattern_options('NNNATCG', pattern2='ATCG', data='paired', inline_umi=True)
+    >>> _check_pattern_options(None, pattern2='ATCG', data='paired', inline_umi=True)
+    >>> _check_pattern_options(None, pattern2=None, data='paired', inline_umi=True)
+    ValueError: Expecting paired end sequences with inline UMIs. At least 1 pattern is required
+    >>> _check_pattern_options(None, pattern2='ATCG', data='paired', inline_umi=False)
+    ValueError: Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed
+    >>> _check_pattern_options(None, pattern2='ATCG', data='single', inline_umi=False)
+    ValueError: Expecting single end sequences. Pattern required, pattern2 not needed
     '''
+        
+    if data == 'single':
+        # expecting pattern but not pattern2
+        if pattern2 or pattern is None:
+            raise ValueError('Expecting single end sequences. Pattern required, pattern2 not needed')
+    else:
+        if inline_umi:
+            # pattern is optional for paired end data with inline UMIs if pattern2 present
+            if pattern is None and pattern2 is None:
+                raise ValueError('Expecting paired end sequences with inline UMIs. At least 1 pattern is required')
+        else:
+            # pattern required for for non-inline UMI. pattern2 not needed
+            if pattern is None or pattern2 is not None:
+                raise ValueError('Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed')
     
-    
-    if pattern is None and pattern2 is None:
-        raise ValueError('At least 1 pattern is required')
-    if not inline_umi:
-        # pattern2 not needed
-        if pattern2 is not None:
-            raise ValueError('Expecting paired end sequences with out of read UMIs. Pattern2 not needed')
- 
          
 def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
     '''
