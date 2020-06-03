@@ -951,7 +951,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
         i.close()
         
-    print(Total, Matching, NonMatching)
+    print('total reads/pairs:', Total)
+    print('reads with matching pattern:', Matching)
+    print('discarded reads:', NonMatching)
 
     
 if __name__ == '__main__':
