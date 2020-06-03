@@ -978,8 +978,14 @@ if __name__ == '__main__':
     e_parser.add_argument('--compressed', dest='compressed', action='store_false', help='Compress output fastqs with gzip. True if activated')
     
     args = parser.parse_args()
-    extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
+    
+    try:
+        extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
                      r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
-        
+    except AttributeError as e:
+        print('#############\n')
+        print('AttributeError: {0}\n'.format(e))
+        print('#############\n\n')
+        print(parser.format_help())
  
