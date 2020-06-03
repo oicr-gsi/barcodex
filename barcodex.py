@@ -904,7 +904,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
             umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
             if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
                 umi = ''.join(umi_sequences)
-            
+         
         # check if umi matched pattern
         if umi:
             Matching +=1
@@ -974,8 +974,8 @@ if __name__ == '__main__':
     e_parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
     e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
-    e_parser.add_argument('--full_match', dest='full_match', action='store_false', help='Requires the regex pattern to match the entire read sequence. True if activated')
-    e_parser.add_argument('--compressed', dest='compressed', action='store_false', help='Compress output fastqs with gzip. True if activated')
+    e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    e_parser.add_argument('--compressed', dest='compressed', action='store_true', help='Compress output fastqs with gzip. True if activated')
     
     args = parser.parse_args()
     
