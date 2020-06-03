@@ -714,18 +714,18 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
     if keep_extracted:
         if inline_umi:
             if pattern is not None:
-                r1_extracted = _open_fastq_writing(r1_out + '.extracted_sequences.R1.fastq.gz', compressed)
+                r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.extracted_sequences.R1.fastq.gz', compressed)
             if pattern2 is not None:
-                r2_extracted = _open_fastq_writing(r2_out + '.extracted_sequences.R2.fastq.gz', compressed)
+                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) + '.extracted_sequences.R2.fastq.gz', compressed)
         else:
             outdir = os.path.direname(r1_out)
             if data == 'paired':
                 filename = os.path.basename(r3_in)
-                outfile = os.path.join(outdir, filename + '.extracted_sequences.R3.fastq.gz')
+                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + '.extracted_sequences.R3.fastq.gz')
                 r3_extracted = _open_fastq_writing(outfile, compressed)
             elif data == 'single':
                 filename = os.path.basename(r2_in)
-                outfile = os.path.join(outdir, filename + '.extracted_sequences.R2.fastq.gz')
+                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + '.extracted_sequences.R2.fastq.gz')
                 r2_extracted = _open_fastq_writing(outfile, compressed)
 
     return r1_extracted, r2_extracted, r3_extracted
@@ -759,12 +759,49 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
         if data == 'paired':
-            r1_discarded = _open_fastq_writing(r1_out + '.non_matching_reads.R1.fastq.gz', compressed)
-            r2_discarded = _open_fastq_writing(r2_out + '.non_matching_reads.R2.fastq.gz', compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.non_matching_reads.R1.fastq.gz', compressed)
+            r2_discarded = _open_fastq_writing(_remove_fastq_extension(r2_out) + '.non_matching_reads.R2.fastq.gz', compressed)
         elif data == 'single':
-            r1_discarded = _open_fastq_writing(r1_out + '.non_matching_reads.R1.fastq.gz', compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.non_matching_reads.R1.fastq.gz', compressed)
     
     return r1_discarded, r2_discarded
+
+
+
+def _remove_fastq_extension(fastq):
+    '''
+    (str) -> str
+    
+    Returns the name of the fastq file without extension or returns the file name
+    if the extension is not one of: ".fastq.gz", ".fastq", ".fq.gz", ".fq", ".gz"
+    
+    Parameters
+    ----------
+    
+    - fastq (str): Path to the fastq file
+        
+    Examples
+    --------
+    >>> _remove_fastq_extension('/myfolder/folder/folder/myfile.fastq.gz')
+    '/myfolder/folder/folder/myfile'
+    >>> _remove_fastq_extension('/myfolder/folder/folder/myfile.fastq.gz.fq.gz')
+    '/myfolder/folder/folder/myfile'
+    >>> _remove_fastq_extension('/myfolder/folder/folder/myfile.fastq.gz.fq.gz.fq')
+    '/myfolder/folder/folder/myfile'
+    >>> _remove_fastq_extension('myfile.R1.fastq.gz')
+    'myfile.R1'
+    >>> _remove_fastq_extension('myfile.R1.fastq.gz.trimmed.fq.gz')
+    'myfile.R1.fastq.gz.trimmed'
+    '''
+    
+    # copy the file name
+    name = fastq
+    # make a list of possible Fastq extensions
+    extensions = ['.fastq.gz', '.fastq', '.fq.gz', '.fq', '.gz']
+    while name[name.rfind('.'):] in extensions:
+        name = name[: name.rfind('.')]
+    
+    return name
 
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
@@ -799,12 +836,11 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     - compressed (bool): output fastqs are compressed with gzip if True
     '''
     
-    # remove extension before appending discarded or extracted extension
     # append extracted sequences to read name instead of fastq
     # run as module and script
     # handle umis not in line with read
     # use whitelist
-        
+    # add log file    
    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
