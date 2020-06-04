@@ -711,21 +711,27 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
     # initialize variables
     r1_extracted, r2_extracted, r3_extracted = None, None, None
     
+    # add suffix to file name
+    if compressed:
+        suffix = '.extracted_sequences.{0}.fastq.gz'
+    else:
+        suffix = '.extracted_sequences.{0}.fastq'
+    
     if keep_extracted:
         if inline_umi:
             if pattern is not None:
-                r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.extracted_sequences.R1.fastq.gz', compressed)
+                r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) +  suffix.format('R1'), compressed)
             if pattern2 is not None:
-                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) + '.extracted_sequences.R2.fastq.gz', compressed)
+                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) +  suffix.format('R2'), compressed)
         else:
             outdir = os.path.direname(r1_out)
             if data == 'paired':
                 filename = os.path.basename(r3_in)
-                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + '.extracted_sequences.R3.fastq.gz')
+                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + suffix.format('R3'))
                 r3_extracted = _open_fastq_writing(outfile, compressed)
             elif data == 'single':
                 filename = os.path.basename(r2_in)
-                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + '.extracted_sequences.R2.fastq.gz')
+                outfile = os.path.join(outdir, _remove_fastq_extension(filename) + suffix.format('R2'))
                 r2_extracted = _open_fastq_writing(outfile, compressed)
 
     return r1_extracted, r2_extracted, r3_extracted
@@ -755,14 +761,20 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
 
     # initialize variables
     r1_discarded, r2_discarded = None, None
-    
+
+    # add suffix to file name 
+    if compressed:
+        suffix = '.non_matching_reads.{0}.fastq.gz'
+    else:
+        suffix = '.non_matching_reads.{0}.fastq'
+
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
         if data == 'paired':
-            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.non_matching_reads.R1.fastq.gz', compressed)
-            r2_discarded = _open_fastq_writing(_remove_fastq_extension(r2_out) + '.non_matching_reads.R2.fastq.gz', compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'), compressed)
+            r2_discarded = _open_fastq_writing(_remove_fastq_extension(r2_out) + suffix.format('R2'), compressed)
         elif data == 'single':
-            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + '.non_matching_reads.R1.fastq.gz', compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'), compressed)
     
     return r1_discarded, r2_discarded
 
@@ -802,6 +814,44 @@ def _remove_fastq_extension(fastq):
         name = name[: name.rfind('.')]
     
     return name
+
+
+
+def _add_gzip_extension(r1_out, r2_out, compressed):
+    '''
+    (str, str | None, bool) -> (str, str)
+    
+    Returns file names r1_out and r2_out, if defined, with '.gz' extension if
+    compressed is True and '.gz' not already in file name
+    
+    Parameters
+    ----------
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                            None for single end read sequences
+    - compressed (bool): output fastqs are compressed with gzip if True
+        
+    Examples
+    --------
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz', False)
+    ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz', True)
+    ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', None, True)
+    ('myfile.R1.fastq.gz', None)
+    >>> _add_gzip_extension('myfile.R1.fastq', None, True)
+    ('myfile.R1.fastq.gz', None)
+    >>> _add_gzip_extension('myfile.R1.fastq', 'myfile.R2.fastq', True)
+    ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
+    '''
+    
+    if compressed:
+        if r1_out[-3:] != '.gz':
+            r1_out += '.gz'
+        if r2_out:
+            if r2_out[-3:] != '.gz':
+                r2_out += '.gz'
+    return r1_out, r2_out
 
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
@@ -851,6 +901,8 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, [r1_in, r2_in, r3_in]))
     
     # open outfiles for writing
+    # add '.gz' if output fastqs are compressed and '.gz' not in file name
+    r1_out, r2_out = _add_gzip_extension(r1_out, r2_out, compressed)    
     r1_writer = _open_fastq_writing(r1_out, compressed)
     r2_writer = _open_fastq_writing(r2_out, compressed) if data == 'paired' and r2_out else None
     
