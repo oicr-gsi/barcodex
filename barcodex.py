@@ -881,6 +881,23 @@ def _read_whitelist(whitelist):
     return barcodes
 
 
+def _write_discarded_reads(keep_discarded, discarded_fastqs, read):
+    '''
+    (bool, list, list) -> None
+    
+    Write reads without matching patterns to corresponding fastqs
+    
+    Parameters
+    ----------
+    - keep_discarded (bool): Write reads without matching patterns to file if True
+    - discarded_fastqs (list): List of files opened for writing
+    - read (list): List of reads
+    '''
+    
+    if keep_discarded:
+        for i in range(len(discarded_fastqs)):
+            discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
+
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
@@ -997,9 +1014,8 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
             if whitelist and umi not in barcodes:
                 # skip not whitelisted umi
                 NonMatching += 1
-                if keep_discarded:
-                    for i in range(len(discarded_fastqs)):
-                        discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
+                # write non-matching reads to file if keep_discarded
+                _write_discarded_reads(keep_discarded, discarded_fastqs, read)
             else:
                 Matching +=1
                 if inline_umi:
@@ -1037,10 +1053,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                         outfastqs[i].write('\n'.join(newreads[i]) +'\n')
         else:
             NonMatching += 1
-            if keep_discarded:
-                for i in range(len(discarded_fastqs)):
-                    discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
-
+            # write non-matching reads to file if keep_discarded
+            _write_discarded_reads(keep_discarded, discarded_fastqs, read)
+    
     # close all open files
     for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
         i.close()
