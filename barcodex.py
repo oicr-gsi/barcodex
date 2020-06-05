@@ -936,7 +936,6 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     
     # append extracted sequences to read name instead of fastq
     # run as module and script
-    # handle umis not in line with read
     # add log file    
    
     # check input and output parameters
@@ -1003,11 +1002,14 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
             # extract UMI from read1 and/or read2 
             L = [_extract_umi_from_read(read[i], seq_extract, UMIs[i], spacers[i], ps[i], full_match) if patterns[i] else None for i in range(len(patterns))]     
             #L = [_extract_umi_from_read(read[i], seq_extract, UMIs[i], spacers[i], ps[i], full_match) for i in range(len(patterns)) if patterns[i]]     
-            # get umi sequences
-            umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
-            if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
-                umi = ''.join(umi_sequences)
-         
+        else:
+            # UMIs are in fastq2 or fastq3 respectively for single and paired end data
+            L = [_extract_umi_from_read(read[-1], seq_extract, UMIs[i], spacers[i], ps[i], full_match) if patterns[i] else None for i in range(len(patterns))]     
+        # get umi sequences
+        umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
+        if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
+            umi = ''.join(umi_sequences)
+            
         # check if umi matched pattern
         if umi:
             # check if whitelisted barcode
@@ -1018,14 +1020,16 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                 _write_discarded_reads(keep_discarded, discarded_fastqs, read)
             else:
                 Matching +=1
+                # get read names, read, umi and extracted sequences and qualities for single and paired end
+                readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
+                seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
+                
+                assert umi == ''.join(umi_seqs)
+                
+                
+                
                 if inline_umi:
-                    # get read names, read, umi and extracted sequences and qualities for single and paired end
-                    readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
-                    seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
-                
-                    assert umi == ''.join(umi_seqs)
-                
-                
+                                
                     if pattern and pattern2:
                         # paired end sequencing, umi extracted from each read
                         newreads = [list(map(lambda x: x.strip(), [readnames[i], seqs[i], read[i][2], quals[i]])) for i in range(len(read))]
@@ -1048,9 +1052,16 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                         if keep_extracted and r2_extracted:
                             r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))) + '\n')
 
-                    # write new reads to output fastq
-                    for i in range(len(outfastqs)):
-                        outfastqs[i].write('\n'.join(newreads[i]) +'\n')
+                else:
+                    # single end: umi extracted from read 2. paired end: umi extracted from read 3
+                    # keep read sequence and qualities
+                    newreads = [list(map(lambda x: x.strip(), [readnames[i], read[i][1], read[i][2], read[i][3]])) for i in range(len(read) -1)]
+                    if keep_extracted:
+                        r3_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]))) + '\n')
+                    
+                # write new reads to output fastq
+                for i in range(len(outfastqs)):
+                    outfastqs[i].write('\n'.join(newreads[i]) +'\n')
         else:
             NonMatching += 1
             # write non-matching reads to file if keep_discarded
