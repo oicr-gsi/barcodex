@@ -1036,7 +1036,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                         # write extracted sequences to file(s)
                         if keep_extracted:
                             for i in range(len(extracted_fastqs)):
-                                extracted_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), [read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]))))
+                                extracted_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), [read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]))) + '\n')
                     elif pattern:
                         # single or paired end sequencing, umi extracted from read1
                         newreads = [list(map(lambda x: x.strip(), [readnames[0], seqs[0], read[0][2], quals[0]]))]
