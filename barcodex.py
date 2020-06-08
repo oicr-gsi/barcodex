@@ -724,7 +724,7 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
             if pattern2 is not None:
                 r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) +  suffix.format('R2'), compressed)
         else:
-            outdir = os.path.direname(r1_out)
+            outdir = os.path.dirname(r1_out)
             if data == 'paired':
                 filename = os.path.basename(r3_in)
                 outfile = os.path.join(outdir, _remove_fastq_extension(filename) + suffix.format('R3'))
