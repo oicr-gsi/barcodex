@@ -10,6 +10,7 @@ import os
 from itertools import zip_longest
 import regex
 import argparse
+import json
 
 
 def _is_gzipped(filename):
@@ -899,7 +900,22 @@ def _write_discarded_reads(keep_discarded, discarded_fastqs, read):
             discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
 
 
-
+def _write_metrics(D, outputfile):
+    '''
+    (dict, str) -> None
+    
+    Writes data in D as a json
+    
+    Parameters
+    ----------
+    
+    - D (dict): Data in the form of a dictionary of key, value pairs
+    - outputfile (str): Path the output json file
+    '''
+    
+    with open(outputfile, 'w') as newfile:
+        json.dump(D, newfile, indent=4)
+    
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
@@ -1069,10 +1085,15 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # close all open files
     for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
         i.close()
-        
+    
+    # save metrics to files
+    d = {'total reads/pairs': Total, 'reads/pairs with matching pattern': Matching,
+         'discarded reads/pairs': NonMatching}
+    _write_metrics(d, os.path.join(os.path.dirname(r1_out), 'Extraction_metrics.json'))
+            
     print('total reads/pairs:', Total)
-    print('reads with matching pattern:', Matching)
-    print('discarded reads:', NonMatching)
+    print('reads/pairs with matching pattern:', Matching)
+    print('discarded reads/pairs:', NonMatching)
 
     
 if __name__ == '__main__':
