@@ -855,21 +855,21 @@ def _add_gzip_extension(r1_out, r2_out, compressed):
     return r1_out, r2_out
 
 
-def _read_whitelist(whitelist):
+def _get_valid_barcodes(barcode_list):
     '''
     (str) -> list
     
-    Returns a list of whitelisted barcodes present in column 1 of the whitelist
+    Returns a list of accepted barcodes present in column 1 of the barcode_list
     file. Any other columns, if present, are ignored.
     
     Parameters
     ----------
-    - whitelist (str): Path to file with accepted barcodes. Barcodes are expected
+    - barcode_list (str): Path to file with accepted barcodes. Barcodes are expected
                        in the 1st column. Any other columns are ignored
     '''
     
-    # open file with whitelisted barcodes
-    infile = open(whitelist)
+    # open file with accepted barcodes
+    infile = open(barcode_list)
     # create a list of barcodes
     barcodes = []
     for line in infile:
@@ -920,7 +920,7 @@ def _write_metrics(D, outputfile):
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
-                     separator='_', compressed=True, whitelist=None):
+                     separator='_', compressed=True, barcode_list=None):
     '''
     (str, str, str | None, str | None, bool, str, bool, bool, str | None, str | None, str | None, bool, str, bool, str | None) -> None
 
@@ -948,7 +948,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
     - compressed (bool): output fastqs are compressed with gzip if True
-    - whitelist (str or None): Path to file with accepted barcodes. Barcodes are expected
+    - barcode_list (str or None): Path to file with accepted barcodes. Barcodes are expected
                                in the 1st column. Any other columns are ignored.
     '''
     
@@ -993,9 +993,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     discarded_fastqs = [i for i in [r1_discarded, r2_discarded] if i is not None]
     extracted_fastqs = [i for i in [r1_extracted, r2_extracted, r3_extracted] if i is not None]
     
-    # check if list of whitelisted barcodes provides
-    if whitelist:
-        barcodes = _read_whitelist(whitelist)
+    # check if list of accepted barcodes provides
+    if barcode_list:
+        barcodes = _get_valid_barcodes(barcode_list)
         
     # create iterator with reads from each file
     Reads = zip(*map(lambda x: _get_read(x), infastqs))
@@ -1028,10 +1028,10 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
             
         # check if umi matched pattern
         if umi:
-            # check if whitelisted barcode
-            # need to check if each umi+discarded seq is found in the whitelist
-            if whitelist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
-                # skip not whitelisted umi
+            # check if list of accepted barcodes
+            # need to check if each umi+discarded seq is found in the list
+            if barcode_list and all(map(lambda x: x in barcodes, umi_sequences)) == False:
+                # skip umis not listed
                 NonMatching += 1
                 # write non-matching reads to file if keep_discarded
                 _write_discarded_reads(keep_discarded, discarded_fastqs, read)
@@ -1121,14 +1121,14 @@ if __name__ == '__main__':
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
     e_parser.add_argument('--compressed', dest='compressed', action='store_true', help='Compress output fastqs with gzip. True if activated')
-    e_parser.add_argument('--whitelist', dest='whitelist', help='Path to file with whitelisted barcodes (1st column)')
+    e_parser.add_argument('--barcode_list', dest='barcode_list', help='Path to file with valid barcodes (1st column)')
         
     args = parser.parse_args()
     
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, whitelist=args.whitelist)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, barcode_list=args.barcode_list)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
