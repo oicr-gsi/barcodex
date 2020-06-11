@@ -980,7 +980,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # check if list of whitelisted barcodes provides
     if whitelist:
         barcodes = _read_whitelist(whitelist)
-    
+        
     # create iterator with reads from each file
     Reads = zip(*map(lambda x: _get_read(x), infastqs))
     
@@ -1104,7 +1104,7 @@ if __name__ == '__main__':
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, whitelist=args.whitelist)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
