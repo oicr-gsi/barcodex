@@ -10,6 +10,7 @@ import os
 from itertools import zip_longest
 import regex
 import argparse
+import json
 
 
 def _is_gzipped(filename):
@@ -899,7 +900,22 @@ def _write_discarded_reads(keep_discarded, discarded_fastqs, read):
             discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
 
 
-
+def _write_metrics(D, outputfile):
+    '''
+    (dict, str) -> None
+    
+    Writes data in D as a json
+    
+    Parameters
+    ----------
+    
+    - D (dict): Data in the form of a dictionary of key, value pairs
+    - outputfile (str): Path the output json file
+    '''
+    
+    with open(outputfile, 'w') as newfile:
+        json.dump(D, newfile, indent=4)
+    
 
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
@@ -986,7 +1002,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     
     # count all reads and reads with matching and non-matching patterns
     Total, Matching, NonMatching = 0, 0, 0
-         
+    # track umi counts
+    umi_counts = {}     
+     
     # loop over iterator with slices of 4 read lines from each file
     for read in Reads:
         # reset variable at each iteration. used to evaluate match
@@ -1018,14 +1036,14 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                 # write non-matching reads to file if keep_discarded
                 _write_discarded_reads(keep_discarded, discarded_fastqs, read)
             else:
+                # update umi counter
+                umi_counts[umi] = umi_counts.get(umi, 0) + 1
                 Matching +=1
                 # get read names, read, umi and extracted sequences and qualities for single and paired end
                 readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                 seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
                 
                 assert umi == ''.join(umi_seqs)
-                
-                
                 
                 if inline_umi:
                                 
@@ -1069,10 +1087,16 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # close all open files
     for i in infastqs + outfastqs + discarded_fastqs + extracted_fastqs:
         i.close()
-        
+    
+    # save metrics to files
+    d = {'total reads/pairs': Total, 'reads/pairs with matching pattern': Matching,
+         'discarded reads/pairs': NonMatching}
+    _write_metrics(d, os.path.join(os.path.dirname(r1_out), 'Extraction_metrics.json'))
+    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), 'UMI_counts.json'))
+    
     print('total reads/pairs:', Total)
-    print('reads with matching pattern:', Matching)
-    print('discarded reads:', NonMatching)
+    print('reads/pairs with matching pattern:', Matching)
+    print('discarded reads/pairs:', NonMatching)
 
     
 if __name__ == '__main__':
