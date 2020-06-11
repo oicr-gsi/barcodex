@@ -899,6 +899,8 @@ def _write_discarded_reads(keep_discarded, discarded_fastqs, read):
             discarded_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n')
 
 
+
+
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
@@ -931,13 +933,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     - separator (str): String separating the UMI sequence and part of the read header
     - compressed (bool): output fastqs are compressed with gzip if True
     - whitelist (str or None): Path to file with accepted barcodes. Barcodes are expected
-                               in the 1st column. Any other columns are ignored
+                               in the 1st column. Any other columns are ignored.
     '''
     
-    # append extracted sequences to read name instead of fastq
-    # run as module and script
-    # add log file    
-   
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
     # check pattern parameters 
@@ -982,7 +980,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # check if list of whitelisted barcodes provides
     if whitelist:
         barcodes = _read_whitelist(whitelist)
-    
+        
     # create iterator with reads from each file
     Reads = zip(*map(lambda x: _get_read(x), infastqs))
     
@@ -1013,7 +1011,8 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
         # check if umi matched pattern
         if umi:
             # check if whitelisted barcode
-            if whitelist and umi not in barcodes:
+            # need to check if each umi+discarded seq is found in the whitelist
+            if whitelist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
                 # skip not whitelisted umi
                 NonMatching += 1
                 # write non-matching reads to file if keep_discarded
@@ -1105,7 +1104,7 @@ if __name__ == '__main__':
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, whitelist=args.whitelist)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
