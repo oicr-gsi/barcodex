@@ -415,6 +415,45 @@ def _get_read(fastq_file):
     return zip_longest(*args, fillvalue=None)
 
 
+def _read_cleanup(read):
+    '''
+    (tuple) -> list
+    
+    Takes a tuple with tuple(s) containing read information and retutn a list
+    of lists in which all elements are stripped of trailing characters
+    
+    Parameters
+    ----------
+    - read (tuple): A tuple with one or more tuples, each containing 4 strings from a read    
+    
+    Examples
+    -------
+    read = (('@M00146:137:000000000-D7KWF:1:1102:19596:10317 1:N:0:GTTCTCGT\n',
+             'ACTGTTGAGATACTTAGTAATAAATTAAATAAACATTTCTAAAAGAGTATTCTACATTTTTAGCCTAAACATATAAGAGAAAGCATCTGAAGCAGTCATGTCACACAGTAGAGATAATTGTTGATGATGAAATAATCACAGTAGAGGTCAT\n',
+             '+\n',
+             'CCCCCFFFFCFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHGGHHGHGHHHHHHHHHIHHHGHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'),
+            ('@M00146:137:000000000-D7KWF:1:1102:19596:10317 2:N:0:GTTCTCGT\n',
+             'CCCATGACCTCTACTGTGATTATTTCATCATCAACAATTATCTCTACTGTGTGACATGACTGCTTCAGATGCTTTCTCTTATATGTTTAGGCTAAAAATGTAGAATACTCTTTTAGAAATGTTTATTTAATTTATTACTAAGTATCTCAAC\n',
+             '+\n',
+             'BCBCCFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHGHHHHHHHHHHHHGHHHHHFHHHHHHHHHHHHGIHHHHHHHHHHGHHHHHHHHGHGHHHHHHHHHHHHHHHHHHGHHHHHGHGHHHHHHHHHHHHHHHHHIHHHHHHHHHHHHHH'))
+    
+    >>> _read_cleanup(read)
+    [['@M00146:137:000000000-D7KWF:1:1102:19596:10317 1:N:0:GTTCTCGT',
+      'ACTGTTGAGATACTTAGTAATAAATTAAATAAACATTTCTAAAAGAGTATTCTACATTTTTAGCCTAAACATATAAGAGAAAGCATCTGAAGCAGTCATGTCACACAGTAGAGATAATTGTTGATGATGAAATAATCACAGTAGAGGTCAT',
+      '+',
+      'CCCCCFFFFCFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHGGHHGHGHHHHHHHHHIHHHGHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'],
+     ['@M00146:137:000000000-D7KWF:1:1102:19596:10317 2:N:0:GTTCTCGT',
+      'CCCATGACCTCTACTGTGATTATTTCATCATCAACAATTATCTCTACTGTGTGACATGACTGCTTCAGATGCTTTCTCTTATATGTTTAGGCTAAAAATGTAGAATACTCTTTTAGAAATGTTTATTTAATTTATTACTAAGTATCTCAAC',
+      '+',
+      'BCBCCFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHGHHHHHHHHHHHHGHHHHHFHHHHHHHHHHHHGIHHHHHHHHHHGHHHHHHHHGHGHHHHHHHHHHHHHHHHHHGHHHHHGHGHHHHHHHHHHHHHHHHHIHHHHHHHHHHHHHH']]
+    '''
+    
+    read = list(map(lambda x: list(x), read))
+    for i in range(len(read)):
+        read[i] = list(map(lambda x: x.strip(), read[i]))
+    return read
+
+
 def _check_fastq_sync(L):
     '''
     (list) -> None
@@ -1007,6 +1046,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
      
     # loop over iterator with slices of 4 read lines from each file
     for read in Reads:
+        # remove end of line from each read line
+        read = _read_cleanup(read)
+                
         # reset variable at each iteration. used to evaluate match
         umi = ''
         # check that input fastqs are in sync
