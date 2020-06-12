@@ -754,9 +754,9 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, patte
     
     # add suffix to file name
     if compressed:
-        suffix = '.extracted_sequences.{0}.fastq.gz'
+        suffix = '.extracted.{0}.fastq.gz'
     else:
-        suffix = '.extracted_sequences.{0}.fastq'
+        suffix = '.extracted.{0}.fastq'
     
     if keep_extracted:
         if inline_umi:
@@ -805,9 +805,9 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
 
     # add suffix to file name 
     if compressed:
-        suffix = '.non_matching_reads.{0}.fastq.gz'
+        suffix = '.discarded.{0}.fastq.gz'
     else:
-        suffix = '.non_matching_reads.{0}.fastq'
+        suffix = '.discarded.{0}.fastq'
 
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
