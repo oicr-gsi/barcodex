@@ -1091,32 +1091,32 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                                 
                     if pattern and pattern2:
                         # paired end sequencing, umi extracted from each read
-                        newreads = [list(map(lambda x: x.strip(), [readnames[i], seqs[i], read[i][2], quals[i]])) for i in range(len(read))]
+                        newreads = [[readnames[i], seqs[i], read[i][2], quals[i]] for i in range(len(read))]
                         # write extracted sequences to file(s)
                         if keep_extracted:
                             for i in range(len(extracted_fastqs)):
-                                extracted_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), [read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]))) + '\n')
+                                extracted_fastqs[i].write('\n'.join([read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]) + '\n')
                     elif pattern:
                         # single or paired end sequencing, umi extracted from read1
-                        newreads = [list(map(lambda x: x.strip(), [readnames[0], seqs[0], read[0][2], quals[0]]))]
+                        newreads = [[readnames[0], seqs[0], read[0][2], quals[0]]]
                         if data == 'paired':
                             # no extraction from read2, append umi to read name and write read from input fastq2
-                            newreads.append(list(map(lambda x: x.strip(), [readnames[1], read[1][1], read[1][2], read[1][3]])))
+                            newreads.append([readnames[1], read[1][1], read[1][2], read[1][3]])
                         if keep_extracted:
-                            r1_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]))) + '\n')
+                            r1_extracted.write('\n'.join([read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]) + '\n')
                     elif pattern2:
                         # paired end sequencing, umi extracted from read2
                         newreads = [list(map(lambda x: x.strip(), [readnames[0], read[0][1], read[0][2], read[0][3]]))]
                         newreads.append(list(map(lambda x: x.strip(), [readnames[1], seqs[0], read[1][2], quals[0]])))
                         if keep_extracted and r2_extracted:
-                            r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))) + '\n')
+                            r2_extracted.write('\n'.join([read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]) + '\n')
 
                 else:
                     # single end: umi extracted from read 2. paired end: umi extracted from read 3
                     # keep read sequence and qualities
-                    newreads = [list(map(lambda x: x.strip(), [readnames[i], read[i][1], read[i][2], read[i][3]])) for i in range(len(read) -1)]
+                    newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
                     if keep_extracted:
-                        r3_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]))) + '\n')
+                        r3_extracted.write('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n')
                     
                 # write new reads to output fastq
                 for i in range(len(outfastqs)):
