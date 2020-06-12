@@ -11,7 +11,8 @@ from itertools import zip_longest
 import regex
 import argparse
 import json
-
+import time
+import logging
 
 def _is_gzipped(filename):
     '''
@@ -753,9 +754,9 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, patte
     
     # add suffix to file name
     if compressed:
-        suffix = '.extracted_sequences.{0}.fastq.gz'
+        suffix = '.extracted.{0}.fastq.gz'
     else:
-        suffix = '.extracted_sequences.{0}.fastq'
+        suffix = '.extracted.{0}.fastq'
     
     if keep_extracted:
         if inline_umi:
@@ -804,9 +805,9 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
 
     # add suffix to file name 
     if compressed:
-        suffix = '.non_matching_reads.{0}.fastq.gz'
+        suffix = '.discarded.{0}.fastq.gz'
     else:
-        suffix = '.non_matching_reads.{0}.fastq'
+        suffix = '.discarded.{0}.fastq'
 
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
@@ -894,21 +895,21 @@ def _add_gzip_extension(r1_out, r2_out, compressed):
     return r1_out, r2_out
 
 
-def _get_valid_barcodes(barcode_list):
+def _get_valid_barcodes(umilist):
     '''
     (str) -> list
     
-    Returns a list of accepted barcodes present in column 1 of the barcode_list
+    Returns a list of accepted barcodes present in column 1 of the umilist
     file. Any other columns, if present, are ignored.
     
     Parameters
     ----------
-    - barcode_list (str): Path to file with accepted barcodes. Barcodes are expected
+    - umilist (str): Path to file with accepted barcodes. Barcodes are expected
                        in the 1st column. Any other columns are ignored
     '''
     
     # open file with accepted barcodes
-    infile = open(barcode_list)
+    infile = open(umilist)
     # create a list of barcodes
     barcodes = []
     for line in infile:
@@ -959,7 +960,7 @@ def _write_metrics(D, outputfile):
 def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
-                     separator='_', compressed=True, barcode_list=None):
+                     separator='_', compressed=True, umilist=None):
     '''
     (str, str, str | None, str | None, bool, str, bool, bool, str | None, str | None, str | None, bool, str, bool, str | None) -> None
 
@@ -987,9 +988,12 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
     - compressed (bool): output fastqs are compressed with gzip if True
-    - barcode_list (str or None): Path to file with accepted barcodes. Barcodes are expected
+    - umilist (str or None): Path to file with accepted barcodes. Barcodes are expected
                                in the 1st column. Any other columns are ignored.
     '''
+    
+    # time function call
+    start = time.time()
     
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
@@ -1033,8 +1037,8 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     extracted_fastqs = [i for i in [r1_extracted, r2_extracted, r3_extracted] if i is not None]
     
     # check if list of accepted barcodes provides
-    if barcode_list:
-        barcodes = _get_valid_barcodes(barcode_list)
+    if umilist:
+        barcodes = _get_valid_barcodes(umilist)
         
     # create iterator with reads from each file
     Reads = zip(*map(lambda x: _get_read(x), infastqs))
@@ -1072,7 +1076,7 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
         if umi:
             # check if list of accepted barcodes
             # need to check if each umi+discarded seq is found in the list
-            if barcode_list and all(map(lambda x: x in barcodes, umi_sequences)) == False:
+            if umilist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
                 # skip umis not listed
                 NonMatching += 1
                 # write non-matching reads to file if keep_discarded
@@ -1140,6 +1144,12 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     print('reads/pairs with matching pattern:', Matching)
     print('discarded reads/pairs:', NonMatching)
 
+    # record time after call
+    end = time.time()
+    print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
+
+
+
     
 if __name__ == '__main__':
         
@@ -1163,14 +1173,14 @@ if __name__ == '__main__':
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
     e_parser.add_argument('--compressed', dest='compressed', action='store_true', help='Compress output fastqs with gzip. True if activated')
-    e_parser.add_argument('--barcode_list', dest='barcode_list', help='Path to file with valid barcodes (1st column)')
+    e_parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
         
     args = parser.parse_args()
     
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, barcode_list=args.barcode_list)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, umilist=args.umilist)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
