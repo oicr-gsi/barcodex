@@ -11,6 +11,7 @@ from itertools import zip_longest
 import regex
 import argparse
 import json
+import time
 
 
 def _is_gzipped(filename):
@@ -991,6 +992,9 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                                in the 1st column. Any other columns are ignored.
     '''
     
+    # time function call
+    start = time.time()
+    
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
     # check pattern parameters 
@@ -1139,6 +1143,12 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     print('total reads/pairs:', Total)
     print('reads/pairs with matching pattern:', Matching)
     print('discarded reads/pairs:', NonMatching)
+
+    # record time after call
+    end = time.time()
+    print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
+
+
 
     
 if __name__ == '__main__':
