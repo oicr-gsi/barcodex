@@ -415,6 +415,45 @@ def _get_read(fastq_file):
     return zip_longest(*args, fillvalue=None)
 
 
+def _read_cleanup(read):
+    '''
+    (tuple) -> list
+    
+    Takes a tuple with tuple(s) containing read information and retutn a list
+    of lists in which all elements are stripped of trailing characters
+    
+    Parameters
+    ----------
+    - read (tuple): A tuple with one or more tuples, each containing 4 strings from a read    
+    
+    Examples
+    -------
+    read = (('@M00146:137:000000000-D7KWF:1:1102:19596:10317 1:N:0:GTTCTCGT\n',
+             'ACTGTTGAGATACTTAGTAATAAATTAAATAAACATTTCTAAAAGAGTATTCTACATTTTTAGCCTAAACATATAAGAGAAAGCATCTGAAGCAGTCATGTCACACAGTAGAGATAATTGTTGATGATGAAATAATCACAGTAGAGGTCAT\n',
+             '+\n',
+             'CCCCCFFFFCFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHGGHHGHGHHHHHHHHHIHHHGHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'),
+            ('@M00146:137:000000000-D7KWF:1:1102:19596:10317 2:N:0:GTTCTCGT\n',
+             'CCCATGACCTCTACTGTGATTATTTCATCATCAACAATTATCTCTACTGTGTGACATGACTGCTTCAGATGCTTTCTCTTATATGTTTAGGCTAAAAATGTAGAATACTCTTTTAGAAATGTTTATTTAATTTATTACTAAGTATCTCAAC\n',
+             '+\n',
+             'BCBCCFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHGHHHHHHHHHHHHGHHHHHFHHHHHHHHHHHHGIHHHHHHHHHHGHHHHHHHHGHGHHHHHHHHHHHHHHHHHHGHHHHHGHGHHHHHHHHHHHHHHHHHIHHHHHHHHHHHHHH'))
+    
+    >>> _read_cleanup(read)
+    [['@M00146:137:000000000-D7KWF:1:1102:19596:10317 1:N:0:GTTCTCGT',
+      'ACTGTTGAGATACTTAGTAATAAATTAAATAAACATTTCTAAAAGAGTATTCTACATTTTTAGCCTAAACATATAAGAGAAAGCATCTGAAGCAGTCATGTCACACAGTAGAGATAATTGTTGATGATGAAATAATCACAGTAGAGGTCAT',
+      '+',
+      'CCCCCFFFFCFFGGGGGGGGGGHHHHHHHHHHHHHHHHHHHGGHHGHGHHHHHHHHHIHHHGHIHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHGHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH'],
+     ['@M00146:137:000000000-D7KWF:1:1102:19596:10317 2:N:0:GTTCTCGT',
+      'CCCATGACCTCTACTGTGATTATTTCATCATCAACAATTATCTCTACTGTGTGACATGACTGCTTCAGATGCTTTCTCTTATATGTTTAGGCTAAAAATGTAGAATACTCTTTTAGAAATGTTTATTTAATTTATTACTAAGTATCTCAAC',
+      '+',
+      'BCBCCFFFFFFFGGGGGGGGGGHHHHHHHHHHHHHHGHHHHHHHHHHHHGHHHHHFHHHHHHHHHHHHGIHHHHHHHHHHGHHHHHHHHGHGHHHHHHHHHHHHHHHHHHGHHHHHGHGHHHHHHHHHHHHHHHHHIHHHHHHHHHHHHHH']]
+    '''
+    
+    read = list(map(lambda x: list(x), read))
+    for i in range(len(read)):
+        read[i] = list(map(lambda x: x.strip(), read[i]))
+    return read
+
+
 def _check_fastq_sync(L):
     '''
     (list) -> None
@@ -855,21 +894,21 @@ def _add_gzip_extension(r1_out, r2_out, compressed):
     return r1_out, r2_out
 
 
-def _read_whitelist(whitelist):
+def _get_valid_barcodes(barcode_list):
     '''
     (str) -> list
     
-    Returns a list of whitelisted barcodes present in column 1 of the whitelist
+    Returns a list of accepted barcodes present in column 1 of the barcode_list
     file. Any other columns, if present, are ignored.
     
     Parameters
     ----------
-    - whitelist (str): Path to file with accepted barcodes. Barcodes are expected
+    - barcode_list (str): Path to file with accepted barcodes. Barcodes are expected
                        in the 1st column. Any other columns are ignored
     '''
     
-    # open file with whitelisted barcodes
-    infile = open(whitelist)
+    # open file with accepted barcodes
+    infile = open(barcode_list)
     # create a list of barcodes
     barcodes = []
     for line in infile:
@@ -920,7 +959,7 @@ def _write_metrics(D, outputfile):
 def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
-                     separator='_', compressed=True, whitelist=None):
+                     separator='_', compressed=True, barcode_list=None):
     '''
     (str, str, str | None, str | None, bool, str, bool, bool, str | None, str | None, str | None, bool, str, bool, str | None) -> None
 
@@ -948,7 +987,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
     - compressed (bool): output fastqs are compressed with gzip if True
-    - whitelist (str or None): Path to file with accepted barcodes. Barcodes are expected
+    - barcode_list (str or None): Path to file with accepted barcodes. Barcodes are expected
                                in the 1st column. Any other columns are ignored.
     '''
     
@@ -993,9 +1032,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     discarded_fastqs = [i for i in [r1_discarded, r2_discarded] if i is not None]
     extracted_fastqs = [i for i in [r1_extracted, r2_extracted, r3_extracted] if i is not None]
     
-    # check if list of whitelisted barcodes provides
-    if whitelist:
-        barcodes = _read_whitelist(whitelist)
+    # check if list of accepted barcodes provides
+    if barcode_list:
+        barcodes = _get_valid_barcodes(barcode_list)
         
     # create iterator with reads from each file
     Reads = zip(*map(lambda x: _get_read(x), infastqs))
@@ -1007,6 +1046,9 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
      
     # loop over iterator with slices of 4 read lines from each file
     for read in Reads:
+        # remove end of line from each read line
+        read = _read_cleanup(read)
+                
         # reset variable at each iteration. used to evaluate match
         umi = ''
         # check that input fastqs are in sync
@@ -1028,10 +1070,10 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
             
         # check if umi matched pattern
         if umi:
-            # check if whitelisted barcode
-            # need to check if each umi+discarded seq is found in the whitelist
-            if whitelist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
-                # skip not whitelisted umi
+            # check if list of accepted barcodes
+            # need to check if each umi+discarded seq is found in the list
+            if barcode_list and all(map(lambda x: x in barcodes, umi_sequences)) == False:
+                # skip umis not listed
                 NonMatching += 1
                 # write non-matching reads to file if keep_discarded
                 _write_discarded_reads(keep_discarded, discarded_fastqs, read)
@@ -1049,32 +1091,32 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                                 
                     if pattern and pattern2:
                         # paired end sequencing, umi extracted from each read
-                        newreads = [list(map(lambda x: x.strip(), [readnames[i], seqs[i], read[i][2], quals[i]])) for i in range(len(read))]
+                        newreads = [[readnames[i], seqs[i], read[i][2], quals[i]] for i in range(len(read))]
                         # write extracted sequences to file(s)
                         if keep_extracted:
                             for i in range(len(extracted_fastqs)):
-                                extracted_fastqs[i].write('\n'.join(list(map(lambda x: x.strip(), [read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]))) + '\n')
+                                extracted_fastqs[i].write('\n'.join([read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]) + '\n')
                     elif pattern:
                         # single or paired end sequencing, umi extracted from read1
-                        newreads = [list(map(lambda x: x.strip(), [readnames[0], seqs[0], read[0][2], quals[0]]))]
+                        newreads = [[readnames[0], seqs[0], read[0][2], quals[0]]]
                         if data == 'paired':
                             # no extraction from read2, append umi to read name and write read from input fastq2
-                            newreads.append(list(map(lambda x: x.strip(), [readnames[1], read[1][1], read[1][2], read[1][3]])))
+                            newreads.append([readnames[1], read[1][1], read[1][2], read[1][3]])
                         if keep_extracted:
-                            r1_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]))) + '\n')
+                            r1_extracted.write('\n'.join([read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]) + '\n')
                     elif pattern2:
                         # paired end sequencing, umi extracted from read2
                         newreads = [list(map(lambda x: x.strip(), [readnames[0], read[0][1], read[0][2], read[0][3]]))]
                         newreads.append(list(map(lambda x: x.strip(), [readnames[1], seqs[0], read[1][2], quals[0]])))
                         if keep_extracted and r2_extracted:
-                            r2_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]))) + '\n')
+                            r2_extracted.write('\n'.join([read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]) + '\n')
 
                 else:
                     # single end: umi extracted from read 2. paired end: umi extracted from read 3
                     # keep read sequence and qualities
-                    newreads = [list(map(lambda x: x.strip(), [readnames[i], read[i][1], read[i][2], read[i][3]])) for i in range(len(read) -1)]
+                    newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
                     if keep_extracted:
-                        r3_extracted.write('\n'.join(list(map(lambda x: x.strip(), [read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]))) + '\n')
+                        r3_extracted.write('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n')
                     
                 # write new reads to output fastq
                 for i in range(len(outfastqs)):
@@ -1121,14 +1163,14 @@ if __name__ == '__main__':
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
     e_parser.add_argument('--compressed', dest='compressed', action='store_true', help='Compress output fastqs with gzip. True if activated')
-    e_parser.add_argument('--whitelist', dest='whitelist', help='Path to file with whitelisted barcodes (1st column)')
+    e_parser.add_argument('--barcode_list', dest='barcode_list', help='Path to file with valid barcodes (1st column)')
         
     args = parser.parse_args()
     
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, whitelist=args.whitelist)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, barcode_list=args.barcode_list)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
