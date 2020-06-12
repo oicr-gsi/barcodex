@@ -1116,7 +1116,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                     # keep read sequence and qualities
                     newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
                     if keep_extracted:
-                        r3_extracted.write('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n')
+                        extracted_fastqs[-1].write('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n')
                     
                 # write new reads to output fastq
                 for i in range(len(outfastqs)):
