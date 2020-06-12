@@ -189,7 +189,7 @@ def _check_pattern_sequence(pattern):
                 raise ValueError('String pattern must look like NNNNATCG or NNNN')
 
 
-def _check_extraction_mode(pattern, pattern2):
+def _check_extraction_mode(pattern1, pattern2):
     '''
     (str | None, str | None) -> None
     
@@ -197,7 +197,7 @@ def _check_extraction_mode(pattern, pattern2):
     
     Parameters
     ----------
-    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
                              None if UMIs are extracted only from FASTQ 2 
     - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
                               None if UMIs are extracted only from FASTQ 1.
@@ -210,10 +210,10 @@ def _check_extraction_mode(pattern, pattern2):
     >>> _check_extraction_mode('(?<discard_1>.+)(?<umi_1>.{3})(?discard_2>TT)', '(?<umi_1>.{3})AA')
     '''
     
-    if pattern and pattern2:
-        if _is_pattern_sequence(pattern) == True and _is_pattern_sequence(pattern2) == False:
+    if pattern1 and pattern2:
+        if _is_pattern_sequence(pattern1) == True and _is_pattern_sequence(pattern2) == False:
             raise ValueError('Both patterns must be either string sequences or regex')
-        elif _is_pattern_sequence(pattern) == False and _is_pattern_sequence(pattern2) == True:
+        elif _is_pattern_sequence(pattern1) == False and _is_pattern_sequence(pattern2) == True:
             raise ValueError('Both patterns must be either string sequences or regex')
 
 
@@ -528,7 +528,7 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
                 raise ValueError('Expecting paired end sequences with inline UMIs. Paths to r1 and r2 I/O fastqs required. Path to r3 input not needed')
         elif not inline_umi:
             # requires r1, r2 and r3
-            # requires pattern, pattern2 not needed
+            # requires pattern1, pattern2 not needed
             if any(map(lambda x: x is None, [r1_in, r1_out, r2_in, r2_out, r3_in])):
                 raise ValueError('Expecting paired end sequences with out of read UMIs. Paths to r1 and r2 I/O fastqs and to r3 input fastq required')
     elif data == 'single':
@@ -546,7 +546,7 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
                 raise ValueError('Expecting single end sequences with out of read UMIs. Paths to r2 output and r3 input fastq not needed')
 
 
-def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=True):
+def _check_pattern_options(pattern1, pattern2=None, data='single', inline_umi=True):
     '''
     (str | None, str | None, str, bool) -> None
     
@@ -556,7 +556,7 @@ def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=Tru
     Parameters
     ----------
     
-    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
                             None if UMIs are extracted only from FASTQ 2 
     - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
                               None if UMIs are extracted only from FASTQ 1.
@@ -580,17 +580,17 @@ def _check_pattern_options(pattern, pattern2=None, data='single', inline_umi=Tru
         
     if data == 'single':
         # expecting pattern but not pattern2
-        if pattern2 or pattern is None:
-            raise ValueError('Expecting single end sequences. Pattern required, pattern2 not needed')
+        if pattern2 or pattern1 is None:
+            raise ValueError('Expecting single end sequences. Pattern1 required, pattern2 not needed')
     else:
         if inline_umi:
-            # pattern is optional for paired end data with inline UMIs if pattern2 present
-            if pattern is None and pattern2 is None:
+            # pattern1 is optional for paired end data with inline UMIs if pattern2 present
+            if pattern1 is None and pattern2 is None:
                 raise ValueError('Expecting paired end sequences with inline UMIs. At least 1 pattern is required')
         else:
-            # pattern required for for non-inline UMI. pattern2 not needed
-            if pattern is None or pattern2 is not None:
-                raise ValueError('Expecting paired end sequences with UMIs in separate fastq. Requires pattern. Pattern2 is not needed')
+            # pattern1 required for for non-inline UMI. pattern2 not needed
+            if pattern1 is None or pattern2 is not None:
+                raise ValueError('Expecting paired end sequences with UMIs in separate fastq. Requires pattern1. Pattern2 is not needed')
     
          
 def _extract_umi_from_read(read, seq_extract, UMI, spacer, p, full_match):    
@@ -720,9 +720,9 @@ def _open_fastq_writing(output_file, compressed):
 
 
 
-def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed):
+def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, r2_in, r3_in, compressed):
     '''
-    (keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
+    (keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, r2_in, r3_in, compressed) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
     Returns a tuple with fastq files opened for writing extracted sequences 
     (UMIs and discarded sequences) if keep_discarded is True or a tuple with None if False.
@@ -736,7 +736,7 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
     - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
     - data (str): Indicates if single or paired end sequencing data
     - inline_umi (bool): True if UMIs are inline with reads and False otherwise
-    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1
+    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1
                              None if UMIs are extracted only from FASTQ 2 for paired end sequences
     - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2
                               None if UMIs are extracted only from FASTQ 1 for paired end sequences
@@ -759,7 +759,7 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, patter
     
     if keep_extracted:
         if inline_umi:
-            if pattern is not None:
+            if pattern1 is not None:
                 r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) +  suffix.format('R1'), compressed)
             if pattern2 is not None:
                 r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) +  suffix.format('R2'), compressed)
@@ -956,7 +956,7 @@ def _write_metrics(D, outputfile):
         json.dump(D, newfile, indent=4)
     
 
-def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
+def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
                      separator='_', compressed=True, barcode_list=None):
@@ -968,7 +968,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     
     - r1_in (str): Path to the input FASTQ 1 (compressed or not)
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
-    - pattern (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
                              The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
                              Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
                              None if UMIs are extracted only from FASTQ 2 for paired end sequences
@@ -994,7 +994,7 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # check input and output parameters
     _check_input_output(r1_in, r1_out, data, inline_umi, r2_in, r2_out, r3_in)
     # check pattern parameters 
-    _check_pattern_options(pattern, pattern2, data, inline_umi)
+    _check_pattern_options(pattern1, pattern2, data, inline_umi)
 
     # open files for reading
     r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, [r1_in, r2_in, r3_in]))
@@ -1009,13 +1009,13 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
     # open files for writing reads without matching patterns
     r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
     # open files for writing reads with extracted sequences (UMI and discarded sequences)
-    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern, pattern2, r1_out, r2_out, r2_in, r3_in, compressed)
+    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, r2_in, r3_in, compressed)
     
     # check that both patterns are either strings or regex
-    _check_extraction_mode(pattern, pattern2)
+    _check_extraction_mode(pattern1, pattern2)
     # get pattern variables for each read 
-    vals = list(zip(*list(map(lambda x: _get_read_patterns(x), [pattern, pattern2]))))
-    P = [pattern, pattern2]
+    vals = list(zip(*list(map(lambda x: _get_read_patterns(x), [pattern1, pattern2]))))
+    P = [pattern1, pattern2]
     seq_extract  = any(vals[0])
     UMIs = [vals[1][i] for i in range(len(P)) if P[i] is not None]
     spacers = [vals[2][i] for i in range(len(P)) if P[i] is not None]
@@ -1089,14 +1089,14 @@ def extract_barcodes(r1_in, r1_out, pattern, pattern2=None, inline_umi=True,
                 
                 if inline_umi:
                                 
-                    if pattern and pattern2:
+                    if pattern1 and pattern2:
                         # paired end sequencing, umi extracted from each read
                         newreads = [[readnames[i], seqs[i], read[i][2], quals[i]] for i in range(len(read))]
                         # write extracted sequences to file(s)
                         if keep_extracted:
                             for i in range(len(extracted_fastqs)):
                                 extracted_fastqs[i].write('\n'.join([read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]) + '\n')
-                    elif pattern:
+                    elif pattern1:
                         # single or paired end sequencing, umi extracted from read1
                         newreads = [[readnames[0], seqs[0], read[0][2], quals[0]]]
                         if data == 'paired':
@@ -1151,7 +1151,7 @@ if __name__ == '__main__':
     e_parser = subparsers.add_parser('extract', help="Extract UMIs from read sequences")
     e_parser.add_argument('--r1_in', dest='r1_in', help='Path to input FASTQ 1', required=True)
     e_parser.add_argument('--r1_out', dest='r1_out', help='Path to output FASTQ 1', required=True)
-    e_parser.add_argument('--pattern', dest='pattern', help='Barcode string of regex for extracting UMIs in read 1')
+    e_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
     e_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
     e_parser.add_argument('--inline', dest='inline_umi', action='store_true', help='UMIs inline with reads or not. True if activated')
     e_parser.add_argument('--data', dest='data', choices=['single', 'paired'], default='single', help='Paired or single end sequencing')
@@ -1168,7 +1168,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     try:
-        extract_barcodes(args.r1_in, args.r1_out, pattern=args.pattern, pattern2=args.pattern2,
+        extract_barcodes(args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
                      inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
                      r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, barcode_list=args.barcode_list)
     except AttributeError as e:
