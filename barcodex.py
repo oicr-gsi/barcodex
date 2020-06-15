@@ -1110,7 +1110,6 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     # loop over file groups, make list of opened files
     for group in file_groups:
         # open files for reading
-        print(group)
         r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, group))
         # make a list of fastqs open for reading
         infastqs = [i for i in [r1, r2, r3] if i is not None]
