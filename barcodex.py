@@ -1202,14 +1202,23 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     
     # save metrics to files
     d = {'total reads/pairs': Total, 'reads/pairs with matching pattern': Matching,
-         'discarded reads/pairs': NonMatching}
-    _write_metrics(d, os.path.join(os.path.dirname(r1_out), 'Extraction_metrics.json'))
-    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), 'UMI_counts.json'))
+         'discarded reads/pairs': NonMatching, 'pattern1': pattern1, 'pattern2': pattern2,
+         'umi-list file': umilist}
+    # get prefix from r1_out
+    prefix = _remove_fastq_extension(os.path.basename(r1_out))
+    _write_metrics(d, os.path.join(os.path.dirname(r1_out), '{0}_extraction_metrics.json'.format(prefix)))
+    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_UMI_counts.json'.format(prefix)))
     
     print('total reads/pairs:', Total)
     print('reads/pairs with matching pattern:', Matching)
     print('discarded reads/pairs:', NonMatching)
-
+    if pattern1:
+        print('pattern1:', pattern1)
+    if pattern2:
+        print('pattern2', pattern2)
+    if umilist:
+        print('umi-list file:', umilist)
+    
     # record time after call
     end = time.time()
     print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
