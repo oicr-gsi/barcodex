@@ -12,7 +12,6 @@ import regex
 import argparse
 import json
 import time
-import logging
 
 def _is_gzipped(filename):
     '''
@@ -1144,15 +1143,15 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                     # write non-matching reads to file if keep_discarded
                     _write_discarded_reads(keep_discarded, discarded_fastqs, read)
                 else:
-                    # update umi counter
-                    umi_counts[umi] = umi_counts.get(umi, 0) + 1
                     Matching +=1
                     # get read names, read, umi and extracted sequences and qualities for single and paired end
                     readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                     seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
                 
                     assert umi == ''.join(umi_seqs)
-                
+                    # update umi counter. keep track of UMI origin
+                    umi_counts['.'.join(umi_seqs)] = umi_counts.get('.'.join(umi_seqs), 0) + 1
+                                        
                     if inline_umi:
                                 
                         if pattern1 and pattern2:
@@ -1207,7 +1206,7 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     # get prefix from r1_out
     prefix = _remove_fastq_extension(os.path.basename(r1_out))
     _write_metrics(d, os.path.join(os.path.dirname(r1_out), '{0}_extraction_metrics.json'.format(prefix)))
-    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_UMI_counts.json'.format(prefix)))
+    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_uMI_counts.json'.format(prefix)))
     
     print('total reads/pairs:', Total)
     print('reads/pairs with matching pattern:', Matching)
