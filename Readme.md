@@ -4,8 +4,8 @@ BarcodEX is tool for extracting Unique Molecular Identifiers (UMIs) from single 
 It can handle UMIs inline with reads or located in separate fastqs.
 
 ## Installation ##
-### From Pypi ###
-BarcodEx is available from Pypi
+### From PyPi ###
+BarcodEx is available from PyPi
 
 ```pip install barcodex```
 
@@ -17,7 +17,7 @@ Clone the BarcodEx repository
 Install required python libraries by running
 ```pip install -r requirements.txt```
 
-### Extraction of UMI sequences in **extract** mode ###
+## Extraction of UMI sequences in **extract** mode ##
 
 Arguments
 
@@ -41,7 +41,7 @@ Arguments
 
 
 Barcodex extracts UMIs using either a pattern sequence or a regular expression and appends the concatenated UMIs to the read name preceded by a separator string specified in the command. 
-UMIs can be extracted from read 1 and/or read 2 using respectively ```--pattern1``` and ```--pattern2```. At leat 1 pattern must be used. When extracting UMIs in read 1 and read 2, ```--pattern1``` and `--pattern2``` must be both either a string sequence or a regular expression.
+UMIs can be extracted from read 1 and/or read 2 using respectively ```--pattern1``` and ```--pattern2```. At leat 1 pattern must be used. When extracting UMIs in read 1 and read 2, ```--pattern1``` and ```--pattern2``` must be both either a string sequence or a regular expression.
 Reads that are not matching the provided patterns are discarded. Discarded reads can be recovered for inspection. Morover, the extracted sequences can also be recovered and written to file if the original fastqs need to be re-generated (see below).
 
 #### Extraction with a string pattern ####
@@ -53,46 +53,59 @@ Extraction with the pattern sequence always extracts UMIs at the beginning of th
 
 #### Extraction with a regular expression ####
 
+**Need to write section**
+
+It is important to construct the regular expression such that the begining of the read is captured in the regular expression.
+
 
 
 #### Filtering extracted UMIs against a list ####
 
 Extracted UMIs can be filtered out against a list of validated UMIs provided as a table file with ```--umilist```. The UMIs must be in the first column and any other columns are ignored.
-Reads for which the extracted UMIs are not in the list are discarded. For paired end reads, both reads are discarded if each UMI is not in the list when UMIs are extracted from each read. 
+Reads for which the extracted UMIs are not in the list are discarded. For paired end reads, both reads are discarded if any UMI is not in the list when UMIs are extracted from each read. 
 
 #### Extraction of UMIs in single or paired read sequences #### 
 
 Single and paired end read data are indicated with the option ```--data single``` or ```--data paired``` respectively.
 For paired end data with inline UMIs, options ```--r1_in``` and ```r2_in``` indicate the paths to the read 1 and read 2 fastqs and ```--r1_out``` and ```r2_out``` indicate the paths to the read1 and read2 output fastqs.
 Only ```r1_in``` and ```r1_out``` are required for single end data with inline UMIs.
-Output fastqs are compressed if ```--compressed``` is used. The ```.gz``` extension is added to ```--r1_out``` and/or ```--r2_out``` if not specified. 
-
+Output fastqs are compressed if ```--compressed``` is used. The ```.gz``` extension is added to ```--r1_out``` and/or ```--r2_out``` if not specified.
+Input fastqs can be compressed with gzip or uncompressed. Input fastqs for paired end data must be in sync. 
 
 #### Extraction from multiple input fastqs ####
 
-Input fastqs can be compressed with gzip or uncompressed.
-
-
-
-
-
-
+Multiple input fastqs can be processed together for read 1 and/or read 2 but generating a single output fastq for single end data and 2 output fastqs for paired read data.
+The files mut be passed to ```r1_in``` for read 1 fastqs and ```r2_in``` for read 2 fastqs, each file being separated by white space.
+The number of input fastqs for paired data must be the same for read 1 and read 2 and each list of files must be in the same order.
 
 #### Extraction of UMIs not inline with reads ####
 
 With option ```--inline```, barcodex expects UMIs to be inline with the read. For some library types, such as sureselect and haloplex, the UMIs are not inline but are located in a separate fastq. Omitting ```--inline``` assumes UMIs to be in a fastq file. This file is indicated with ```-r2_in``` for single end data and ```--r3_in``` for paired end data.
 
 
-
+** need to write that section**
 
 #### Recovering discarded reads and extracted sequences ####
 
+Reads without a matching pattern can be written to file for inspection with option ```--keep_discarded```.
+The fastqs with discarded reads are written in the same directory as ```r1_in```. File names with discarded reads are modeled after ```--r1_out``` and ```--r2_out``` with suffix  ".discarded.R1/2.fastq".
+Extracted read sequences (UMIs and any spacer sequence removed from read) can also be written to file with option ```--keep_extracted```. This allows to re-generate the original fastqs using the ```r1_out``` and/or ```r2_out``` fastqs together with the fastqs with extracted reads.
+The fastqs with extracted reads are written in the same directory as ```r1_in```. File names with extracted reads are modeled after ```--r1_out``` and ```--r2_out``` with suffix  ".extracted.R1/2.fastq" for inline UMIs and ".extracted.R2/3.fastq" for UMIs located in files.
 
 
 #### UMIs and reads metrics ####
 
-
-
+Two files with metrics of the UMI extraction are written in json format in the same directory as ```--r1_out```.
+The files are named after ```--r1_out``` with suffix "_extraction_metrics.json' and "_UMI_counts.json".
+The first json captures information about the extraction process:
+- total reads/pairs processed
+- number reads/pairs with matching pattern
+- numberreads/pairs with non-matching pattern
+- pattern1
+- pattern2
+- umi-list
+The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, but adding a "." separator to track the read origin of each UMI.
+For instance, "AAA.TCG": 10 in the json file indicates that sequence AAATCG is found 10 times in all the extracted UMIs, and that it is made of AAA from read 1 and TCG from read 2. One can then easily obtain counts of all UMIs from read 1 and read 2.
 
 #### Example commands ####
 
