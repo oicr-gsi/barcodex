@@ -19,7 +19,7 @@ Install required python libraries by running
 
 ## Extraction of UMI sequences in **extract** mode ##
 
-Arguments
+Parameters
 
 | argument | purpose | required/optional                                    |
 | ------- | ------- | ------------------------------------------ |
@@ -80,10 +80,9 @@ The number of input fastqs for paired data must be the same for read 1 and read 
 
 ### Extraction of UMIs not inline with reads ###
 
-With option ```--inline```, barcodex expects UMIs to be inline with the read. For some library types, such as sureselect and haloplex, the UMIs are not inline but are located in a separate fastq. Omitting ```--inline``` assumes UMIs to be in a fastq file. This file is indicated with ```-r2_in``` for single end data and ```--r3_in``` for paired end data.
-
-
-** need to write that section**
+With option ```--inline```, barcodex expects UMIs to be inline with the read.
+For some library types, such as sureselect and haloplex, the UMIs are not inline but are located in a separate fastq. Omitting ```--inline``` assumes UMIs to be in a fastq file. This file is indicated with ```-r2_in``` for single end data and ```--r3_in``` for paired end data.
+With UMIs in file, ```--pattern1``` is used to extract UMIs from ```r2_in``` or ```r3_in``` and ```--pattern2``` is not used.
 
 ### Recovering discarded reads and extracted sequences ###
 
@@ -214,7 +213,7 @@ Umis are preceded by an underscore in the read header.
 python3.6 barcodex.py extract \
 --r1_in myfile_R1.1.fastq.gz myfile_R1.2.fastq.gz myfile_R1.3.fastq.gz myfile_R1.4.fastq.gz 
 --r1_out output_R1.umis.fastq.gz 
---r2_in myfile_R2.1.fastq.gz myfile_R2.2.fastq.gz myfile_R2.3.fastq.gz myfile_R3.4.fastq.gz 
+--r2_in myfile_R2.1.fastq.gz myfile_R2.2.fastq.gz myfile_R2.3.fastq.gz myfile_R2.4.fastq.gz 
 --r2_out output_R2.umis.fastq.gz 
 --inline --data paired \
 --pattern1 "(?<umi>.{3})(?<discard>.{2})" \
