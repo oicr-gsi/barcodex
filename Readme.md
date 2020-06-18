@@ -40,7 +40,7 @@ Parameters
 | --compressed | Compresses output fastqs with gzip | optional              |
 
 
-Barcodex extracts UMIs using either a pattern sequence or a regular expression and appends the concatenated UMIs to the read name preceded by a separator string specified in the command. 
+BarcodEx extracts UMIs using either a pattern sequence or a regular expression and appends the concatenated UMIs to the read name preceded by a separator string specified in the command. 
 UMIs can be extracted from read 1 and/or read 2 using respectively ```--pattern1``` and ```--pattern2```. At leat 1 pattern must be used. When extracting UMIs in read 1 and read 2, ```--pattern1``` and ```--pattern2``` must be both either a string sequence or a regular expression.
 Reads that are not matching the provided patterns are discarded. Discarded reads can be recovered for inspection. Morover, the extracted sequences can also be recovered and written to file if the original fastqs need to be re-generated (see below).
 
@@ -51,13 +51,78 @@ For instance the pattern ```NNNNN``` extracts the first 5 nucleotides from the r
 
 Extraction with the pattern sequence always extracts UMIs at the beginning of the read sequence. Extraction with regular expression offers more flexibility in the UMI design (see below).
 
+As an example, consider read:
+
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:
+TCATGTCTGCTAATGGGAAAGAGTGTCCTAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTT
++
+1>1A1DDF11DBDGFFA111111D1FEEG31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB
+```
+
+Extraction with pattern ```NNNNNNNNNNNNATGGGAAAGAGTGTCC``` will extract UMI ```TCATGTCTGCTA``` and add it to the read name. Spacer sequence ```ATGGGAAAGAGTGTCC``` is removed from read.
+So the new read is now:
+
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593_TCATGTCTGCTA 1:N:0:
+TAACTGTCCCAGATCGTTTTTTCTCACGTCTTTTCTCCTTTCACTTCTCTTTTTCTTTTTCTTTCTTCTTCTT
++
+G31AD1DAA1110BA00000//01A2A/B/B/212D2111D1222D12122B1B01D1@101112@D2D12BB
+```
+
+Extracted sequence ```TCATGTCTGCTAATGGGAAAGAGTGTCC``` and its corresponding qualities ```1>1A1DDF11DBDGFFA111111D1FEE``` can be written to fastq file with option ```--keep_extracted``` (see below).
+
 ### Extraction with a regular expression ###
 
-**Need to write section**
+Regular expressions allow more flexibility for extracting UMIs, in particular UMIs with complex design and UMIs not starting at the beginning of the read.
+A good introduction to regular expression can be found in this [Regular Expression HOWTO](https://docs.python.org/3/howto/regex.html). 
+BarcodEx depends on the ```regex``` module rather than the standard ```re``` module because the former allows fuzzy matching.
 
-It is important to construct the regular expression such that the begining of the read is captured in the regular expression.
+Sequences are extracted from the read using named groups within the regex. Allowed named groups are ```umi``` and ```discard```. Syntax with named groups is as follow:
+```(?<umi>.{3})(?<discard>T{2})```: extracts a 3bp UMI followed by TT spacer that is removed from read and discarded
+The ```discard``` group removes nucleotides and qualities from the read while the ```umi``` group extracts the UMI that gets added to the read name.
+Any sequence not contained in ```umi``` and ```discard``` groups will remain in the read. Thus, it is important to construct the regular expression such that the begining of the read is captured in groups.
 
+For instance, consider the following read:
 
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593 1:N:0:
+AATCGTCCATCG
++
+1>1A1DDF11DB
+```
+
+The regex ```(?<umi>.{3})(?<discard>C{2})``` will extract UMI ```CGT``` and discard spacer ```CC```. But the first 3 nucleotides ```AAT``` will remain in the read with new read being:
+
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593_CGT 1:N:0:
+AATATCG
++
+1>111DB
+```
+
+To prevent the ```AAT``` before the UMI ```CGT``` to be part of the read, we need to account for the nucleotides upstream in the UMI in the regex ```(?<discard1>^.*)(?<umi>.{3})(?<discard2>C{2})```
+
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593_CGT 1:N:0:
+ATCG
++
+11DB
+```
+
+The extracted sequences and qualities can be recovered with option ```--keep_extract``` which writes the following read to file (see below).
+
+```
+@MISEQ753:39:000000000-BDH2V:1:1101:17521:1593_CGT 1:N:0:
+AATCGTCC
++
+1>1A1DDF
+```
+
+Multiple ```umi``` and ```discard``` named groups are allowed within the regex but they should be named differently. Naming is not important as long as groups contain the strings ```umi``` and ```discard```.
+For instance the following 2 regex will give the same output:
+- ```(?<discard_1>^.*)(?<umi>.{3})(?<discard_a>C{2})')``` and ```(?<discard1>^.*)(?<umi>.{3})(?<discard2>C{2})')```
+- ```(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)``` and ```(?P<umi_a>^[ACGT]{3}[ACG])(?P<discard_a>T)|(?P<umi_b>^[ACGT]{3})(?P<discard_b>T)```
 
 ### Filtering extracted UMIs against a list ###
 
@@ -75,20 +140,20 @@ Input fastqs can be compressed with gzip or uncompressed. Input fastqs for paire
 ### Extraction from multiple input fastqs ###
 
 Multiple input fastqs can be processed together for read 1 and/or read 2 but generating a single output fastq for single end data and 2 output fastqs for paired read data.
-The files mut be passed to ```r1_in``` for read 1 fastqs and ```r2_in``` for read 2 fastqs, each file being separated by white space.
+The files mut be passed to ```--r1_in``` for read 1 fastqs and ```--r2_in``` for read 2 fastqs, each file being separated by white space.
 The number of input fastqs for paired data must be the same for read 1 and read 2 and each list of files must be in the same order.
 
 ### Extraction of UMIs not inline with reads ###
 
-With option ```--inline```, barcodex expects UMIs to be inline with the read.
-For some library types, such as sureselect and haloplex, the UMIs are not inline but are located in a separate fastq. Omitting ```--inline``` assumes UMIs to be in a fastq file. This file is indicated with ```-r2_in``` for single end data and ```--r3_in``` for paired end data.
-With UMIs in file, ```--pattern1``` is used to extract UMIs from ```r2_in``` or ```r3_in``` and ```--pattern2``` is not used.
+With option ```--inline```, BarcodEx expects UMIs to be inline with the read.
+For some library types, such as sureselect and haloplex, the UMIs are not inline but are located in a separate fastq. Omitting ```--inline``` assumes UMIs to be in a fastq file. This file is indicated with ```--r2_in``` for single end data and ```--r3_in``` for paired end data.
+With UMIs in file, ```--pattern1``` is used to extract UMIs from ```--r2_in``` or ```--r3_in``` and ```--pattern2``` is not used.
 
 ### Recovering discarded reads and extracted sequences ###
 
 Reads without a matching pattern can be written to file for inspection with option ```--keep_discarded```.
 The fastqs with discarded reads are written in the same directory as ```r1_in```. File names with discarded reads are modeled after ```--r1_out``` and ```--r2_out``` with suffix  ".discarded.R1/2.fastq".
-Extracted read sequences (UMIs and any spacer sequence removed from read) can also be written to file with option ```--keep_extracted```. This allows to re-generate the original fastqs using the ```r1_out``` and/or ```r2_out``` fastqs together with the fastqs with extracted reads.
+Extracted read sequences (UMIs and any spacer sequence removed from read, along with their qualities) can also be written as a fastq file with option ```--keep_extracted```. This allows to re-generate the original fastqs using the ```r1_out``` and/or ```r2_out``` fastqs together with the fastqs with extracted reads.
 The fastqs with extracted reads are written in the same directory as ```r1_in```. File names with extracted reads are modeled after ```--r1_out``` and ```--r2_out``` with suffix  ".extracted.R1/2.fastq" for inline UMIs and ".extracted.R2/3.fastq" for UMIs located in files.
 
 
