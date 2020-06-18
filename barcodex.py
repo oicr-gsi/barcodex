@@ -1206,7 +1206,7 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     # get prefix from r1_out
     prefix = _remove_fastq_extension(os.path.basename(r1_out))
     _write_metrics(d, os.path.join(os.path.dirname(r1_out), '{0}_extraction_metrics.json'.format(prefix)))
-    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_uMI_counts.json'.format(prefix)))
+    _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_UMI_counts.json'.format(prefix)))
     
     print('total reads/pairs:', Total)
     print('reads/pairs with matching pattern:', Matching)
