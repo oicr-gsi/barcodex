@@ -172,6 +172,51 @@ The first json captures information about the extraction process:
 The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, but adding a "." separator to track the read origin of each UMI.
 For instance, "AAA.TCG": 10 in the json file indicates that sequence AAATCG is found 10 times in all the extracted UMIs, and that it is made of AAA from read 1 and TCG from read 2. One can then easily obtain counts of all UMIs from read 1 and read 2.
 
+
+### Importing Barcodex as a module ###
+
+BarcodEx can be run as a script or imported as a module to perform extraction within your own script.
+The recommended import is ```from barcodex import extract_barcodes```. Dependent modules must also be imported (see Example command #8 below).
+
+
+```
+from barcodex import extract_barcodes
+
+help(extract_barcodes)
+Help on function extract_barcodes in module barcodex:
+
+extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True, data='single', keep_extracted=True, keep_discarded=True, r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True, umilist=None)
+    (list, str, str | None, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, bool, str | None) -> None
+    
+    Parameters
+    ----------
+    
+    - r1_in (list): Path(s) to the input FASTQ 1 (compressed or not)
+    - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
+    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
+    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
+                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
+                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
+                             None if UMIs are extracted only from FASTQ 1 for paired end sequences
+    - inline_umi (bool): True if UMIs are inline with reads and False otherwise
+    - data (str): Indicates if single or paired end sequencing data
+    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
+    - keep_discarded (bool): Write reads without matching pattern to file if True
+    - r2_in (list or None): Path(s) to the input FASTQ 2 (compressed or not)
+    - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
+                           None for single end read sequences
+    - r3_in (list or None): Path(s) to input FASTQ 3 for paired end sequences with non-inline UMIs 
+    - full_match (bool): True if the regular expression needs to match the entire read sequence
+    - separator (str): String separating the UMI sequence and part of the read header
+    - compressed (bool): output fastqs are compressed with gzip if True
+    - umilist (str or None): Path to file with accepted barcodes. Barcodes are expected
+                               in the 1st column. Any other columns are ignored.
+```
+
+
 ### Example commands ###
 
 **Example 1. Paired end end with string sequence**
@@ -297,7 +342,7 @@ python3.6 barcodex.py extract \
 --r1_in myfile_R1.fastq.gz \
 --r1_out output_R1.umis.fastq.gz \
 --r2_in myfile_R2.fastq.gz \ 
---r2_out myfile_R2.fastq.gz \
+--r2_out output_R2.umis.fastq.gz \
 --r3_in myfile_R3.fastq.gz \ ## file with UMIs
 --separator "_" --keep_extracted \
 --keep_discarded --compressed
@@ -305,3 +350,24 @@ python3.6 barcodex.py extract \
 --data paired 
 ```
 
+**Example 8. Importing BarcodEx as module within a script**
+
+Sample as Example 2.
+
+```
+import gzip
+import os
+from itertools import zip_longest
+import regex
+import json
+import time
+from barcodex import extract_barcodes
+
+
+extract_barcodes(['myfile_R1.fastq.gz'], 'output_R1.umis.fastq.gz', pattern1='(?<umi>.{3})(?<discard>.{2})',
+                   pattern2='(?<umi>.{3})(?<discard>.{2})', inline_umi=True, data='paired',
+                   keep_extracted=True, keep_discarded=True, r2_in=['myfile_R2.fastq.gz'],
+                   r2_out='output_R2.umis.fastq.gz', r3_in=None, full_match=False,
+                   compressed=True, umilist=None)
+
+```
