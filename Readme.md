@@ -119,7 +119,7 @@ AATCGTCC
 1>1A1DDF
 ```
 
-Multiple ```umi``` and ```discard``` named groups are allowed within the regex but they should be named differently. Naming is not important as long as groups contain the strings ```umi``` and ```discard```.
+Multiple ```umi``` and ```discard``` named groups are allowed within the regex but they should be named differently. Naming is not important as long as groups contain the strings ```umi``` and ```discard```without special characters.
 For instance the following 2 regex will give the same output:
 - ```(?<discard_1>^.*)(?<umi>.{3})(?<discard_a>C{2})')``` and ```(?<discard1>^.*)(?<umi>.{3})(?<discard2>C{2})')```
 - ```(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)``` and ```(?P<umi_a>^[ACGT]{3}[ACG])(?P<discard_a>T)|(?P<umi_b>^[ACGT]{3})(?P<discard_b>T)```
