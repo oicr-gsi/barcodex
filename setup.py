@@ -42,7 +42,7 @@ setup(
 	"Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows"
     ],
-	install_requires = ["regex>=2.4.104"],
+	install_requires = ["regex>=2020.6.8"],
     python_requires=">=3.6",
 )
     
