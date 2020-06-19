@@ -27,7 +27,8 @@ setup(
 	url = "https://github.com/oicr-gsi/barcodex",
 	py_modules = ['barcodex'],
 	long_description = content,
-	classifiers = [
+	long_description_content_type='text/markdown',
+    classifiers = [
 	"Development Status :: 3 - Alpha",
 	"Intended Audience :: Science/Research",
 	"Intended Audience :: Developers",
