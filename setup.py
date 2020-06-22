@@ -9,7 +9,7 @@ Created on Fri Jun 12 12:02:21 2020
 from setuptools import setup
 
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 # get the long description from the readme
 with open("README.md") as infile:
@@ -25,7 +25,7 @@ setup(
 	license = "MIT License",
 	keywords = "computational genomics",
 	url = "https://github.com/oicr-gsi/barcodex",
-	py_modules = ['barcodex'],
+	packages = ['barcodex'],
 	long_description = content,
 	long_description_content_type='text/markdown',
     classifiers = [
