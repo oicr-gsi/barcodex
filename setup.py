@@ -42,7 +42,8 @@ setup(
 	"Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows"
     ],
-	install_requires = ["regex>=2020.6.8"],
+    entry_points={'console_scripts': ['barcodex = barcodex.barcodex:main']},
+    install_requires = ["regex>=2020.6.8"],
     python_requires=">=3.6",
 )
     
