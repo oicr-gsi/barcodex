@@ -9,7 +9,7 @@ Created on Fri Jun 12 12:02:21 2020
 from setuptools import setup
 
 
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 
 # get the long description from the readme
 with open("README.md") as infile:
@@ -42,7 +42,7 @@ setup(
 	"Operating System :: MacOS",
     "Operating System :: Microsoft :: Windows"
     ],
-    entry_points={'console_scripts': ['barcodex = barcodex:main']},
+    entry_points={'console_scripts': ['barcodex = barcodex.py:main']},
     install_requires = ["regex>=2020.6.8"],
     python_requires=">=3.6",
 )
