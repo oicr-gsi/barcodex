@@ -1011,7 +1011,7 @@ def _write_metrics(D, outputfile):
         json.dump(D, newfile, indent=4)
 
 
-def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
+def extract_barcodes(prefix, r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
                      separator='_', compressed=True, umilist=None):
@@ -1020,7 +1020,8 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
 
     Parameters
     ----------
-    
+
+    - prefix (str): the name of output statistics files
     - r1_in (list): Path(s) to the input FASTQ 1 (compressed or not)
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
     - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
@@ -1204,7 +1205,6 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
          'discarded reads/pairs': NonMatching, 'pattern1': pattern1, 'pattern2': pattern2,
          'umi-list file': umilist}
     # get prefix from r1_out
-    prefix = _remove_fastq_extension(os.path.basename(r1_out))
     _write_metrics(d, os.path.join(os.path.dirname(r1_out), '{0}_extraction_metrics.json'.format(prefix)))
     _write_metrics(umi_counts, os.path.join(os.path.dirname(r1_out), '{0}_UMI_counts.json'.format(prefix)))
     
@@ -1238,6 +1238,7 @@ def main():
     e_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
     e_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
     e_parser.add_argument('--inline', dest='inline_umi', action='store_true', help='UMIs inline with reads or not. True if activated')
+    e_parser.add_argument('--prefix', dest='prefix', help='The prefix for output data files. If missing, the read 1 basename is used')
     e_parser.add_argument('--data', dest='data', choices=['single', 'paired'], default='single', help='Paired or single end sequencing')
     e_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
     e_parser.add_argument('--r2_out', dest='r2_out', help='Path to output FASTQ 2')
@@ -1252,8 +1253,8 @@ def main():
     args = parser.parse_args()
     
     try:
-        extract_barcodes(args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
-                     inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
+        extract_barcodes(args.prefix or _remove_fastq_extension(os.path.basename(args.r1_out)), args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
+        inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
                      r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, umilist=args.umilist)
     except AttributeError as e:
         print('#############\n')

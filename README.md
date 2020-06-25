@@ -30,6 +30,7 @@ Parameters
 | --r3_in | Path(s) to FASTQ(s) containing UMIs for paired end with non-inline UMIs | optional              |
 | --pattern1 | pattern or regex for extracting UMIs in read 1   | optional              |
 | --pattern2 | pattern or regex for extracting UMIs in read 2   | optional              |
+| --prefix | the prefix used for statistics output | optional              |
 | --data | paired or single end sequencing   | required              |
 | --separator | String separating the UMI sequence in the read name   | required              |
 | --umilist | Path to file with valid UMIs | optional              |
