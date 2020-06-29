@@ -161,7 +161,7 @@ The fastqs with extracted reads are written in the same directory as ```r1_in```
 ### UMIs and reads metrics ###
 
 Two files with metrics of the UMI extraction are written in json format in the same directory as ```--r1_out```.
-The files are named after ```--r1_out``` with suffix "_extraction_metrics.json' and "_UMI_counts.json".
+The files are named after ```--r1_out``` if ```prefix``` is not used, with suffix "_extraction_metrics.json' and "_UMI_counts.json".
 The first json captures information about the extraction process:
 - total reads/pairs processed
 - number reads/pairs with matching pattern
@@ -186,8 +186,8 @@ from barcodex import extract_barcodes
 help(extract_barcodes)
 Help on function extract_barcodes in module barcodex:
 
-extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True, data='single', keep_extracted=True, keep_discarded=True, r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True, umilist=None)
-    (list, str, str | None, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, bool, str | None) -> None
+extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True, data='single', keep_extracted=True, keep_discarded=True, r2_in=None, r2_out=None, r3_in=None, full_match=False, separator='_', compressed=True, umilist=None, prefix=None)
+    (list, str, str | None, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, bool, str | None, str | None) -> None
     
     Parameters
     ----------
@@ -215,6 +215,7 @@ extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True, data='
     - compressed (bool): output fastqs are compressed with gzip if True
     - umilist (str or None): Path to file with accepted barcodes. Barcodes are expected
                                in the 1st column. Any other columns are ignored.
+    - prefix (str or None): The name of output statistics files. If missing, the read 1 output basename is used
 ```
 
 
