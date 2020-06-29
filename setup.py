@@ -9,7 +9,7 @@ Created on Fri Jun 12 12:02:21 2020
 from setuptools import setup
 
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 # get the long description from the readme
 with open("README.md") as infile:
