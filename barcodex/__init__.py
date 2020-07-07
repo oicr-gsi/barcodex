@@ -775,7 +775,7 @@ def _open_fastq_writing(output_file, compressed):
     '''
     
     if compressed:
-        newfile = gzip.open(output_file, 'wt')
+        newfile = gzip.GzipFile(filename=None, mode="w", fileobj=open(output_file, 'wb'), mtime=0)
     else:
         newfile = open(output_file, 'w')
     return newfile
