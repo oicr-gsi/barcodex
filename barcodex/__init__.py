@@ -1258,7 +1258,7 @@ def main():
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
         inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, full_match=args.full_match, compressed=args.compressed, umilist=args.umilist, prefix=args.prefix)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, separator=args.separator, full_match=args.full_match, compressed=args.compressed, umilist=args.umilist, prefix=args.prefix)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
