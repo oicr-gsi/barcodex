@@ -13,26 +13,6 @@ import argparse
 import json
 import time
 
-def _is_gzipped(filename):
-    '''
-    (str) -> bool
-
-    Returns True if the file is gzipped and False otherwise
-
-    Parameters
-    ----------
-    
-     - filename (str): File name or file path    
-    '''
-    
-    # open file in rb mode
-    infile = open(filename, 'rb')
-    header = infile.readline()
-    infile.close()
-    if header.startswith(b'\x1f\x8b\x08'):
-        return True
-    else:
-        return False
 
 
 def _open_fastq(fastq):
@@ -44,14 +24,11 @@ def _open_fastq(fastq):
     Parameters
     ----------
     
-    - fastq (str): Path to the fastq file (compressed or not)
+    - fastq (str): Path to the gzipped fastq file
     '''
     
     # open input fastq
-    if _is_gzipped(fastq) == True:
-        infile = gzip.open(fastq, 'rt')
-    else:
-        infile = open(fastq)
+    infile = gzip.open(fastq, 'rt')
     return infile
 
 
@@ -493,11 +470,11 @@ def _check_input_output(r1_in, r1_out, data='single', inline_umi=True,
     Parameters
     ----------
     
-    - r1_in (list): Path(s) to the input FASTQ 1 (compressed or not) 
+    - r1_in (list): Path(s) to the input FASTQ 1  
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
     - data (str): Indicates if single or paired end sequencing data
     - inline_umi (bool): True if UMIs are inline with reads and False otherwise
-    - r2_in (list or None): Path(s) to the input FASTQ 2 (compressed or not)
+    - r2_in (list or None): Path(s) to the input FASTQ 2 
     - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence
     - r3_in (list or None): Path(s) to input FASTQ 3 for paired end sequences with non-inline UMIs
     
@@ -759,32 +736,27 @@ def _get_read_patterns(pattern):
     return seq_extract, UMI, spacer, p
 
 
-def _open_fastq_writing(output_file, compressed):
+def _open_fastq_writing(output_file):
     '''
-    (str, bool) -> _io.TextIOWrapper
+    (str) -> _io.TextIOWrapper
     
     Returns a file handler for writing to output_file. The output_file is compressed
-    with gzip (highest compression, level 9),  if compressed is True or is in 
-    plain text file if False.
+    with gzip (highest compression, level 9)
     
     Parameters
     ----------
     
     - output_file (str): Path to the output_file
-    - compressed (bool): output_file is compressed with gzip if True 
     '''
     
-    if compressed:
-        newfile = gzip.GzipFile(filename=None, mode="w", fileobj=open(output_file, 'wb'), mtime=0)
-    else:
-        newfile = open(output_file, 'w')
+    newfile = gzip.GzipFile(filename=None, mode="w", fileobj=open(output_file, 'wb'), mtime=0)
     return newfile
 
 
 
-def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, compressed):
+def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out):
     '''
-    (keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, compressed) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
+    (bool, str, bool, str, str, str, str) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
     Returns a tuple with fastq files opened for writing extracted sequences 
     (UMIs and discarded sequences) if keep_discarded is True or a tuple with None if False.
@@ -805,37 +777,34 @@ def _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, patte
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence
     - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
                             None for single end read sequences
-    - compressed (bool): output fastqs are compressed with gzip if True
     '''
     
     # initialize variables
     r1_extracted, r2_extracted, r3_extracted = None, None, None
     
     # add suffix to file name
-    if compressed:
-        suffix = '.extracted.{0}.fastq.gz'
-    else:
-        suffix = '.extracted.{0}.fastq'
+    suffix = '.extracted.{0}.fastq.gz'
+    
     
     if keep_extracted:
         if inline_umi:
             if pattern1 is not None:
-                r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) +  suffix.format('R1'), compressed)
+                r1_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) +  suffix.format('R1'))
             if pattern2 is not None:
-                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) +  suffix.format('R2'), compressed)
+                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r2_out) +  suffix.format('R2'))
         else:
             if data == 'paired':
-                r3_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R3'), compressed)
+                r3_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R3'))
             elif data == 'single':
-                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R2'), compressed)
+                r2_extracted = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R2'))
 
     return r1_extracted, r2_extracted, r3_extracted
 
 
 
-def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed):
+def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out):
     '''
-    (str, bool, str, str | None, bool) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None)
+    (str, bool, str, str | None) -> (_io.TextIOWrapper | None, _io.TextIOWrapper | None)
     
     Returns a tuple with fastq files opened for writing reads without matching
     patterns if keep_discarded is True or a tuple with None if False.
@@ -851,25 +820,21 @@ def _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
     - r1_out (str): Path to the output fastq 1 with reads re-headered with UMI sequence 
     - r2_out (str | None): Path to the output fastq 2 with reads re-headered with UMI sequence    
                            None for single end read sequences
-    - compressed (bool): output_files r1_out and r2_out are compressed with gzip if True
     '''
 
     # initialize variables
     r1_discarded, r2_discarded = None, None
 
     # add suffix to file name 
-    if compressed:
-        suffix = '.discarded.{0}.fastq.gz'
-    else:
-        suffix = '.discarded.{0}.fastq'
-
+    suffix = '.discarded.{0}.fastq.gz'
+    
     # open optional files for writing. same directory as output fastqs
     if keep_discarded:
         if data == 'paired':
-            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'), compressed)
-            r2_discarded = _open_fastq_writing(_remove_fastq_extension(r2_out) + suffix.format('R2'), compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'))
+            r2_discarded = _open_fastq_writing(_remove_fastq_extension(r2_out) + suffix.format('R2'))
         elif data == 'single':
-            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'), compressed)
+            r1_discarded = _open_fastq_writing(_remove_fastq_extension(r1_out) + suffix.format('R1'))
     
     return r1_discarded, r2_discarded
 
@@ -912,40 +877,37 @@ def _remove_fastq_extension(fastq):
 
 
 
-def _add_gzip_extension(r1_out, r2_out, compressed):
+def _add_gzip_extension(r1_out, r2_out):
     '''
     (str, str | None, bool) -> (str, str)
     
-    Returns file names r1_out and r2_out, if defined, with '.gz' extension if
-    compressed is True and '.gz' not already in file name
+    Returns file names r1_out and r2_out, if defined, with '.gz' extension
     
     Parameters
     ----------
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
     - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
                             None for single end read sequences
-    - compressed (bool): output fastqs are compressed with gzip if True
-        
+          
     Examples
     --------
-    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz', False)
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
     ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
-    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz', True)
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
     ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
-    >>> _add_gzip_extension('myfile.R1.fastq.gz', None, True)
+    >>> _add_gzip_extension('myfile.R1.fastq.gz', None)
     ('myfile.R1.fastq.gz', None)
-    >>> _add_gzip_extension('myfile.R1.fastq', None, True)
+    >>> _add_gzip_extension('myfile.R1.fastq', None)
     ('myfile.R1.fastq.gz', None)
-    >>> _add_gzip_extension('myfile.R1.fastq', 'myfile.R2.fastq', True)
+    >>> _add_gzip_extension('myfile.R1.fastq', 'myfile.R2.fastq')
     ('myfile.R1.fastq.gz', 'myfile.R2.fastq.gz')
     '''
     
-    if compressed:
-        if r1_out[-3:] != '.gz':
-            r1_out += '.gz'
-        if r2_out:
-            if r2_out[-3:] != '.gz':
-                r2_out += '.gz'
+    if r1_out[-3:] != '.gz':
+        r1_out += '.gz'
+    if r2_out:
+        if r2_out[-3:] != '.gz':
+            r2_out += '.gz'
     return r1_out, r2_out
 
 
@@ -1014,14 +976,14 @@ def _write_metrics(D, outputfile):
 def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
                      data='single', keep_extracted=True, keep_discarded=True,
                      r2_in=None, r2_out=None, r3_in=None, full_match=False,
-                     separator='_', compressed=True, umilist=None, prefix=None):
+                     separator='_', umilist=None, prefix=None):
     '''
-    (list, str, str | None, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, bool, str | None, str | None) -> None
+    (list, str, str | None, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, str | None, str | None) -> None
 
     Parameters
     ----------
 
-    - r1_in (list): Path(s) to the input FASTQ 1 (compressed or not)
+    - r1_in (list): Path(s) to the input FASTQ 1
     - r1_out (str): Path to the output FASTQ 1 with reads re-headered with UMI sequence 
     - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
                              The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
@@ -1035,13 +997,12 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     - data (str): Indicates if single or paired end sequencing data
     - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
     - keep_discarded (bool): Write reads without matching pattern to file if True
-    - r2_in (list or None): Path(s) to the input FASTQ 2 (compressed or not)
+    - r2_in (list or None): Path(s) to the input FASTQ 2
     - r2_out (str or None): Path to the output FASTQ 2 with reads re-headered with UMI sequence    
                            None for single end read sequences
     - r3_in (list or None): Path(s) to input FASTQ 3 for paired end sequences with non-inline UMIs 
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
-    - compressed (bool): output fastqs are compressed with gzip if True
     - umilist (str or None): Path to file with accepted barcodes. Barcodes are expected
                                in the 1st column. Any other columns are ignored.
     - prefix (str or None): The name of output statistics files. If missing, the read 1 output basename is used.
@@ -1063,16 +1024,15 @@ def extract_barcodes(r1_in, r1_out, pattern1, pattern2=None, inline_umi=True,
     _check_pattern_options(pattern1, pattern2, data, inline_umi)
 
     # open outfiles for writing
-    # add '.gz' if output fastqs are compressed and '.gz' not in file name
-    r1_out, r2_out = _add_gzip_extension(r1_out, r2_out, compressed)    
-    r1_writer = _open_fastq_writing(r1_out, compressed)
-    r2_writer = _open_fastq_writing(r2_out, compressed) if data == 'paired' and r2_out else None
+    r1_out, r2_out = _add_gzip_extension(r1_out, r2_out)    
+    r1_writer = _open_fastq_writing(r1_out)
+    r2_writer = _open_fastq_writing(r2_out) if data == 'paired' and r2_out else None
     
     # open optional files for writing. same directory as output fastqs
     # open files for writing reads without matching patterns
-    r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out, compressed)
+    r1_discarded, r2_discarded = _get_files_discarded_reads(data, keep_discarded, r1_out, r2_out)
     # open files for writing reads with extracted sequences (UMI and discarded sequences)
-    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out, compressed)
+    r1_extracted, r2_extracted, r3_extracted = _get_files_extracted_reads(keep_extracted, data, inline_umi, pattern1, pattern2, r1_out, r2_out)
     
     # check that both patterns are either strings or regex
     _check_extraction_mode(pattern1, pattern2)
@@ -1250,7 +1210,6 @@ def main():
     e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
     e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
-    e_parser.add_argument('--compressed', dest='compressed', action='store_true', help='Compress output fastqs with gzip. True if activated')
     e_parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
         
     args = parser.parse_args()
@@ -1258,7 +1217,7 @@ def main():
     try:
         extract_barcodes(args.r1_in, args.r1_out, pattern1=args.pattern1, pattern2=args.pattern2,
         inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, separator=args.separator, full_match=args.full_match, compressed=args.compressed, umilist=args.umilist, prefix=args.prefix)
+                     r2_in=args.r2_in, r2_out=args.r2_out, r3_in=args.r3_in, separator=args.separator, full_match=args.full_match, umilist=args.umilist, prefix=args.prefix)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
