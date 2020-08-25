@@ -6,30 +6,12 @@ Created on Tue May 12 14:23:08 2020
 """
 
 import gzip
-import os
 from itertools import zip_longest
 import regex
 import argparse
 import json
 import time
 
-
-
-def _open_fastq(fastq):
-    '''
-    (str) -> _io.TextIOWrapper
-    
-    Returns an open fastq file with file handler at the begining of the file
-    
-    Parameters
-    ----------
-    
-    - fastq (str): Path to the gzipped fastq file
-    '''
-    
-    # open input fastq
-    infile = gzip.open(fastq, 'rt')
-    return infile
 
 
 def _add_umi_to_readname(readname, UMI, separator):
@@ -777,24 +759,6 @@ def _get_valid_barcodes(umilist):
     return barcodes
 
 
-def _write_discarded_reads(keep_discarded, discarded_fastqs, read):
-    '''
-    (bool, list, list) -> None
-    
-    Write reads without matching patterns to corresponding fastqs
-    
-    Parameters
-    ----------
-    - keep_discarded (bool): Write reads without matching patterns to file if True
-    - discarded_fastqs (list): List of files opened for writing
-    - read (list): List of reads
-    '''
-    
-    if keep_discarded:
-        for i in range(len(discarded_fastqs)):
-            discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
-
-
 def _write_metrics(D, outputfile):
     '''
     (dict, str) -> None
@@ -813,11 +777,10 @@ def _write_metrics(D, outputfile):
 
 
 def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
-                     data='single', keep_extracted=True, keep_discarded=True,
-                     r2_in=None, r3_in=None, full_match=False,
+                     data='single', r2_in=None, r3_in=None, full_match=False,
                      separator='_', umilist=None):
     '''
-    (list, str | None, str, str | None, bool, str, bool, bool, list | None, str | None, list | None, bool, str, str | None) -> None
+    (list, str | None, str, str | None, bool, str, list | None, str | None, list | None, bool, str, str | None) -> None
 
     Parameters
     ----------
@@ -834,8 +797,6 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                              None if UMIs are extracted only from FASTQ 1 for paired end sequences
     - inline_umi (bool): True if UMIs are inline with reads and False otherwise
     - data (str): Indicates if single or paired end sequencing data
-    - keep_extracted (bool): Write extracted sequences (UMIs and discarded sequences) to file if True
-    - keep_discarded (bool): Write reads without matching pattern to file if True
     - r2_in (list or None): Path(s) to the input FASTQ 2
     - r3_in (list or None): Path(s) to input FASTQ 3 for paired end sequences with non-inline UMIs 
     - full_match (bool): True if the regular expression needs to match the entire read sequence
@@ -862,23 +823,21 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
     # open optional files for writing. same directory as output fastqs
     # open files for writing reads without matching patterns
     r1_discarded, r2_discarded = None, None
-    if keep_discarded:
-        r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
-        if data == 'paired':
-            r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz')
+    r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
+    if data == 'paired':
+        r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz')
     
     # open files for writing reads with extracted sequences (UMI and discarded sequences)
     r1_extracted, r2_extracted, r3_extracted = None, None, None
-    if keep_extracted:
-        if inline_umi:
-            if pattern1 is not None:
-                r1_extracted = _open_fastq_writing(prefix +  '_extracted.R1.fastq.gz')
-            if pattern2 is not None:
-                r2_extracted = _open_fastq_writing(prefix +  '_extracted.R2.fastq.gz')
-        else:
-            if data == 'paired':
-                r3_extracted = _open_fastq_writing(prefix + '_extracted.R3.fastq.gz')
-            elif data == 'single':
+    if inline_umi:
+        if pattern1 is not None:
+            r1_extracted = _open_fastq_writing(prefix +  '_extracted.R1.fastq.gz')
+        if pattern2 is not None:
+            r2_extracted = _open_fastq_writing(prefix +  '_extracted.R2.fastq.gz')
+    else:
+        if data == 'paired':
+            r3_extracted = _open_fastq_writing(prefix + '_extracted.R3.fastq.gz')
+        elif data == 'single':
                 r2_extracted = _open_fastq_writing(prefix + '_extracted.R2.fastq.gz')
 
     # check that both patterns are either strings or regex
@@ -914,7 +873,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
     # loop over file groups, make list of opened files
     for group in file_groups:
         # open files for reading
-        r1, r2, r3 = list(map(lambda x: _open_fastq(x) if x else None, group))
+        r1, r2, r3 = list(map(lambda x: gzip.open(x, 'rt') if x else None, group))
         # make a list of fastqs open for reading
         infastqs = [i for i in [r1, r2, r3] if i is not None]
          
@@ -952,8 +911,9 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                 if umilist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
                     # skip umis not listed
                     NonMatching += 1
-                    # write non-matching reads to file if keep_discarded
-                    _write_discarded_reads(keep_discarded, discarded_fastqs, read)
+                    # write non-matching reads to file
+                    for i in range(len(discarded_fastqs)):
+                        discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
                 else:
                     Matching +=1
                     # get read names, read, umi and extracted sequences and qualities for single and paired end
@@ -965,43 +925,40 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                     umi_counts['.'.join(umi_seqs)] = umi_counts.get('.'.join(umi_seqs), 0) + 1
                                         
                     if inline_umi:
-                                
                         if pattern1 and pattern2:
                             # paired end sequencing, umi extracted from each read
                             newreads = [[readnames[i], seqs[i], read[i][2], quals[i]] for i in range(len(read))]
                             # write extracted sequences to file(s)
-                            if keep_extracted:
-                                for i in range(len(extracted_fastqs)):
-                                    extracted_fastqs[i].write(str.encode('\n'.join([read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]) + '\n'))
+                            for i in range(len(extracted_fastqs)):
+                                extracted_fastqs[i].write(str.encode('\n'.join([read[i][0], extracted_seqs[i], read[i][2], extracted_quals[i]]) + '\n'))
                         elif pattern1:
                             # single or paired end sequencing, umi extracted from read1
                             newreads = [[readnames[0], seqs[0], read[0][2], quals[0]]]
                             if data == 'paired':
                                 # no extraction from read2, append umi to read name and write read from input fastq2
                                 newreads.append([readnames[1], read[1][1], read[1][2], read[1][3]])
-                            if keep_extracted:
-                                r1_extracted.write(str.encode('\n'.join([read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]) + '\n'))
+                            r1_extracted.write(str.encode('\n'.join([read[0][0], extracted_seqs[0], read[0][2], extracted_quals[0]]) + '\n'))
                         elif pattern2:
                             # paired end sequencing, umi extracted from read2
                             newreads = [list(map(lambda x: x.strip(), [readnames[0], read[0][1], read[0][2], read[0][3]]))]
                             newreads.append(list(map(lambda x: x.strip(), [readnames[1], seqs[0], read[1][2], quals[0]])))
-                            if keep_extracted and r2_extracted:
+                            if r2_extracted:
                                 r2_extracted.write(str.encode('\n'.join([read[1][0], extracted_seqs[0], read[1][2], extracted_quals[0]]) + '\n'))
-
                     else:
                         # single end: umi extracted from read 2. paired end: umi extracted from read 3
                         # keep read sequence and qualities
                         newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
-                        if keep_extracted:
-                            extracted_fastqs[-1].write(str.encode('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n'))
+                        extracted_fastqs[-1].write(str.encode('\n'.join([read[-1][0], extracted_seqs[0], read[-1][2], extracted_quals[0]]) + '\n'))
                     
                     # write new reads to output fastq
                     for i in range(len(outfastqs)):
                         outfastqs[i].write(str.encode('\n'.join(newreads[i]) +'\n'))
             else:
                 NonMatching += 1
-                # write non-matching reads to file if keep_discarded
-                _write_discarded_reads(keep_discarded, discarded_fastqs, read)
+                # write non-matching reads to file
+                for i in range(len(discarded_fastqs)):
+                    discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
+
     
         # close all input fastqs
         for i in infastqs:
@@ -1052,8 +1009,6 @@ def main():
     e_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
     e_parser.add_argument('--r3_in', dest='r3_in', nargs='*', help='Path to input FASTQ 3. Fastq with UMIs for paired end sequencing with UMIs not in line')
     e_parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
-    e_parser.add_argument('--keep_extracted', dest='keep_extracted', action='store_true', help='Output the extracted UMIs and potentially discarded sequences from reads in separate fastqs. True if activated')
-    e_parser.add_argument('--keep_discarded', dest='keep_discarded', action='store_true', help='Output reads with non-matching patterns to separate fastqs. True if activated')
     e_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
     e_parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
         
@@ -1061,8 +1016,8 @@ def main():
     
     try:
         extract_barcodes(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2,
-                         inline_umi=args.inline_umi, data=args.data, keep_extracted=args.keep_extracted, keep_discarded=args.keep_discarded,
-                         r2_in=args.r2_in, r3_in=args.r3_in, full_match=args.full_match, separator=args.separator, umilist=args.umilist)
+                         inline_umi=args.inline_umi, data=args.data, r2_in=args.r2_in, r3_in=args.r3_in,
+                         full_match=args.full_match, separator=args.separator, umilist=args.umilist)
     except AttributeError as e:
         print('#############\n')
         print('AttributeError: {0}\n'.format(e))
