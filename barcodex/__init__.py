@@ -902,7 +902,8 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
             # get umi sequences
             umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
             if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
-                umi = ''.join(umi_sequences)
+                # use hyphen to join UMIs from each read
+                umi = '-'.join(umi_sequences)
             
             # check if umi matched pattern
             if umi:
@@ -920,9 +921,9 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                     readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                     seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
                 
-                    assert umi == ''.join(umi_seqs)
+                    assert umi == '-'.join(umi_seqs)
                     # update umi counter. keep track of UMI origin
-                    umi_counts['.'.join(umi_seqs)] = umi_counts.get('.'.join(umi_seqs), 0) + 1
+                    umi_counts['-'.join(umi_seqs)] = umi_counts.get('-'.join(umi_seqs), 0) + 1
                                         
                     if inline_umi:
                         if pattern1 and pattern2:
