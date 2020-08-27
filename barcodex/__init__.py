@@ -736,27 +736,47 @@ def _get_valid_barcodes(umilist):
     '''
     (str) -> list
     
-    Returns a list of accepted barcodes present in column 1 of the umilist
-    file. Any other columns, if present, are ignored.
+    Returns a list of accepted barcodes.
     
     Parameters
     ----------
-    - umilist (str): Path to file with accepted barcodes. Barcodes are expected
-                       in the 1st column. Any other columns are ignored
-    '''
+    - umilist (str): Path to file with accepted barcodes. 
+   '''
+    
+    # set lists for barcoes found in read1 and read 2
+    barcode1 = []
+    barcode2 = []
+    valid_umis = []    
     
     # open file with accepted barcodes
     infile = open(umilist)
-    # create a list of barcodes
-    barcodes = []
     for line in infile:
         line = line.rstrip()
         if line != '':
-            line = line.split(' ')
-            # barcodes expected in column 1. other columns ignored
-            barcodes.append(line[0].strip())
-    infile.close()
-    return barcodes
+            parts = line.split()
+            if len(parts) == 1:
+                # umi expected in read1 and read2
+                barcode1.append(parts[0])
+                barcode2.append(parts[0])
+            elif len(parts) > 1:
+                # read is indicated by 1 or 2 or both
+                for p in parts[1:]:
+                    if p == "1":
+                        # barcode expected in read1
+                        barcode1.append(parts[0])
+                    elif p == "2":
+                        # barcode expected in read2
+                        barcode2.append(parts[0])
+
+    if len(barcode1) == 0:
+        valid_umis = barcode2
+    elif len(barcode2) == 0:
+        valid_umis = barcode1
+    else:
+        for i in barcode1:
+            for j in barcode2:
+                valid_umis.append(i + '-' + j)
+    return valid_umis
 
 
 def _write_metrics(D, outputfile):
@@ -908,8 +928,8 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
             # check if umi matched pattern
             if umi:
                 # check if list of accepted barcodes
-                # need to check if each umi+discarded seq is found in the list
-                if umilist and all(map(lambda x: x in barcodes, umi_sequences)) == False:
+                # check if concatenated umi in list of valid barcodes
+                if umilist and umi not in barcodes:
                     # skip umis not listed
                     NonMatching += 1
                     # write non-matching reads to file
