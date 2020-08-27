@@ -124,8 +124,11 @@ For instance the following 2 regex will give the same output:
 
 ### Filtering extracted UMIs against a list ###
 
-Extracted UMIs can be filtered out against a list of validated UMIs provided as a table file with ```--umilist```. The UMIs must be in the first column and any other columns are ignored.
-Reads for which the extracted UMIs are not in the list are discarded. For paired end reads, both reads are discarded if any UMI is not in the list when UMIs are extracted from each read. 
+The UMIs will only be accepted if they match an allow list provided with --umilist.
+The list is a text file with one UMI per line. In the case of 2 reads with embedded UMIs, the two parts of the UMI must be on separate lines, optionally followed by the read number they apply to.
+So, AAA would be allowed for either read 1 or read 2, while CCC 2 will allow CCC only on read 2.
+It's also possible to write AAA 1 2 or AAA 1 and AAA 2 if desired.
+ 
 
 ### Extraction of UMIs in single or paired read sequences ### 
 
