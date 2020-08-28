@@ -775,7 +775,7 @@ def _get_valid_barcodes(umilist):
     else:
         for i in barcode1:
             for j in barcode2:
-                valid_umis.append(i + '-' + j)
+                valid_umis.append(i + '.' + j)
     return valid_umis
 
 
@@ -821,8 +821,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
     - r3_in (list or None): Path(s) to input FASTQ 3 for paired end sequences with non-inline UMIs 
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
-    - umilist (str or None): Path to file with accepted barcodes. Barcodes are expected
-                               in the 1st column. Any other columns are ignored.
+    - umilist (str or None): Path to file with accepted barcodes
     '''
     
     # time function call
@@ -922,8 +921,8 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
             # get umi sequences
             umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
             if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
-                # use hyphen to join UMIs from each read
-                umi = '-'.join(umi_sequences)
+                # use dot to join UMIs from each read
+                umi = '.'.join(umi_sequences)
             
             # check if umi matched pattern
             if umi:
@@ -941,9 +940,9 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                     readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                     seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
                 
-                    assert umi == '-'.join(umi_seqs)
+                    assert umi == '.'.join(umi_seqs)
                     # update umi counter. keep track of UMI origin
-                    umi_counts['-'.join(umi_seqs)] = umi_counts.get('-'.join(umi_seqs), 0) + 1
+                    umi_counts['.'.join(umi_seqs)] = umi_counts.get('.'.join(umi_seqs), 0) + 1
                                         
                     if inline_umi:
                         if pattern1 and pattern2:
