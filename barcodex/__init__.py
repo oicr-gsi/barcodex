@@ -883,7 +883,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
         barcodes = _get_valid_barcodes(umilist)
     
     # count all reads and reads with matching and non-matching patterns
-    Total, Matching, NonMatching = 0, 0, 0
+    Total, Matching, NonMatching, Rejected = 0, 0, 0, 0
     # track umi counts
     umi_counts = {}     
     
@@ -931,7 +931,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
                 # check if concatenated umi in list of valid barcodes
                 if umilist and umi not in barcodes:
                     # skip umis not listed
-                    NonMatching += 1
+                    Rejected += 1
                     # write non-matching reads to file
                     for i in range(len(discarded_fastqs)):
                         discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
@@ -991,7 +991,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
     
     # save metrics to files
     d = {'total reads/pairs': Total, 'reads/pairs with matching pattern': Matching,
-         'discarded reads/pairs': NonMatching, 'pattern1': pattern1, 'pattern2': pattern2,
+         'discarded reads/pairs': NonMatching, 'discarded reads/pairs due to unknown UMI': Rejected, 'pattern1': pattern1, 'pattern2': pattern2,
          'umi-list file': umilist}
     _write_metrics(d, prefix + '_extraction_metrics.json')
     _write_metrics(umi_counts, prefix + '_UMI_counts.json')
@@ -999,6 +999,7 @@ def extract_barcodes(r1_in, pattern1, prefix, pattern2=None, inline_umi=True,
     print('total reads/pairs:', Total)
     print('reads/pairs with matching pattern:', Matching)
     print('discarded reads/pairs:', NonMatching)
+    print('discarded reads/pairs due to unknown UMI:', Rejected)
     if pattern1:
         print('pattern1:', pattern1)
     if pattern2:
