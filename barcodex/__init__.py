@@ -1089,8 +1089,8 @@ def main():
     parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
     parser.add_argument('--prefix', dest='prefix', help='Specifies the start of the output files and stats json files', required=True)
     parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
-    subparsers = parser.add_subparsers()
-       		
+    subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
+       	
     # inline UMIs 
     i_parser = subparsers.add_parser('inline', help="Extract UMIs located in read sequences")
     i_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
