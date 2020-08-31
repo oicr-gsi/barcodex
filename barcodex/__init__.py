@@ -1102,9 +1102,9 @@ def main():
     # UMI in separate file
     s_parser = subparsers.add_parser('separate', help="Extract UMIs located in separate file")
     s_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
-    s_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
-    s_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs')
-    s_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq with UMIs for paired end sequencing with UMIs not in line')
+    s_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs')
+    s_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs', required=True)
+    s_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2')
     s_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
     
     args = parser.parse_args()
