@@ -1082,6 +1082,157 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
     end = time.time()
     print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
 
+
+def _restore_read_name(read_name, separator):
+    '''
+    (str, str) -> str
+
+    Returns the original read name without the UMI sequence 
+
+    Parameters
+    ----------
+    - read_name (str): Read name with annotated UMI 
+    - separator (str): String separating the UMI sequence and part of the read header
+    '''
+    
+    try:
+        name_start, name_end = read_name.split(separator)
+    except:
+        raise ValueError('separator {0} not found in read name')
+    
+    new_name = ' '.join([name_start, name_end.split()[-1]])
+    return new_name
+
+
+def _merge_reads(extracted_read, processed_read, separator):
+    '''
+    (list, list, str) -> list
+    
+    Returns a list representation of the original read by merging the extracted and processed
+    read sequences and qualities
+        
+    Parameters
+    ----------
+    - extracted_read (list): List representation of a read with sequence extracted with barcodex
+    - processed_read (list): List representation of a read with annotated UMI with barcodex
+    - separator (str): String separating the UMI sequence and part of the read header
+    '''
+
+    # remove end of line from each read line
+    read_name_extracted = extracted_read[0]
+    read_name_processed = processed_read[0]
+    
+    new_name = _restore_read_name(read_name_processed, separator)
+    if read_name_extracted != new_name:
+        raise ValueError('Unexpected name differences in processed and extracted reads')  
+    new_read_seq = extracted_read[1] + processed_read[1]
+    new_quals = extracted_read[3] + processed_read[3]
+    return [read_name_extracted, new_read_seq, extracted_read[2], new_quals]
+    
+
+def _write_merged_reads(Reads, separator, writer, discarded):
+    '''
+    (zip, str, _io.TextIOWrapper, _io.TextIOWrapper | None) -> None
+    
+    Write restored reads to output fastq including the discarded reads that didn't
+    match the extraction pattern if such reads exist 
+    
+    Parameters
+    ----------
+    - Reads (zip): Iterator loaded with read 
+    - separator (str): String separating the UMI sequence and part of the read header
+    - writer (_io.TextIOWrapper): File handler for writing reads to output fastq.
+                                  The output file is compressed with gzip (highest compression, level 9)
+    - discarded (_io.TextIOWrapper | None): File handler for reading reads that didn't match patterns during extraction with barcodex
+                                            or None if no reads were discarded and file doesn't exist
+    '''
+    
+    # loop over iterator with slices of 4 read lines from each file
+    for read in Reads:
+        # remove end of line from each read line
+        read = _read_cleanup(read)
+        if len(read) == 2:
+            new_read = _merge_reads(read[0], read[1], separator)
+        else:
+            new_name = _restore_read_name(read[0][0], separator)
+            new_read = [new_name, read[0][1], read[0][2], read[0][3]]
+        writer.write(str.encode('\n'.join(list(map(lambda x: x.strip(), new_read))) + '\n'))
+        
+    # check if some reads were discarded because of non-matching patterns
+    if discarded:
+        for line in discarded:
+            writer.write(str.encode(line))
+    
+
+def _get_reads_from_fastqs(processed, extracted):
+    '''
+    (_io.TextIOWrapper, _io.TextIOWrapper | None) -> zip
+
+    Returns an iterator loaded with processed but intact reads if UMIs were not extracted
+    or loaded with processed UMI-extracted reads and with reads with extracted sequences if UMI were indeed extracted 
+    
+    Parameters
+    ----------
+    - processed (_io.TextIOWrapper): File handler for reading processed reads (intacts or UMI-extracted) 
+    - extracted (_io.TextIOWrapper | None): File handler for reading reads with extracted sequences or None
+    '''
+    
+    if extracted:
+        Reads = zip(*map(lambda x: _get_read(x), [extracted, processed]))
+    else:
+        Reads = zip(*map(lambda x: _get_read(x), [processed]))
+    return Reads
+
+
+def reconstruct_fastqs_inline(prefix, separator, r1_processed, r1_extracted=None, r1_discarded=None, r2_processed=None, r2_extracted=None, r2_discarded=None):
+    '''
+    (str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
+    
+    Write the original reads with UMIs to FASTQs.  
+    Always output a single or paired FASTQs regardless of the number of input FASTQs
+    during extraction (ie. equivalent of merging all input fastqs).
+    Paired output fastqs are in sync but the read order may be different than order in the original FASTQs 
+    
+    Parameters
+    ----------
+    - prefix (str): Specifies the start of the output file(s)
+    - separator (str): String separating the UMI sequence and part of the read header
+    - r1_processed (str): FASTQ 1 with UMI-annotated reads 
+    - r1_extracted (str | None): FASTQ with extracted read 1 sequences or None if UMI not extracted 
+    - r1_discarded (str | None): FASTQ with non-matching read 1 sequences if reads didn't
+                                 match pattern1 during extraction or None
+    - r2_processed (str | None): FASTQ 2 with UMI-annotated reads for paired end sequences or None
+    - r2_extracted (str | None): FASTQ with extracted read 2 sequences or None if UMI not extracted 
+    - r2_discarded (str | None): FASTQ with non-matching read 2 sequences if reads didn't
+                                 match pattern2 during extraction or None
+    '''
+    
+    # open files for reading
+    processed1, extracted1, discarded1 = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r1_processed, r1_extracted, r1_discarded]))
+    processed2, extracted2, discarded2 = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r2_processed, r2_extracted, r2_discarded]))
+    
+    # open outfiles for writing
+    r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
+    r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_processed else None
+    
+    # create iterator with reads from each file
+    Reads1 = _get_reads_from_fastqs(processed1, extracted1)
+    
+    # merge reads and write to output fastqs
+    _write_merged_reads(Reads1, separator, r1_writer, discarded1)
+    r1_writer.close()
+
+    # check if paired end sequencing
+    if processed2:
+        Reads2 = _get_reads_from_fastqs(processed2, extracted2)
+        _write_merged_reads(Reads2, separator, r2_writer, discarded2)
+        r2_writer.close()
+
+    for i in [processed1, extracted1, discarded1, processed2, extracted2, discarded2]:
+        if i:
+            i.close()
+
+
     
 def main():
     # create parser
