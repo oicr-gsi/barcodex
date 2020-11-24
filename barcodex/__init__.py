@@ -1104,9 +1104,9 @@ def _restore_read_name(read_name, separator):
     return new_name
 
 
-def _merge_reads(extracted_read, processed_read, separator):
+def _merge_reads(extracted_read, processed_read, separator, umi_pos):
     '''
-    (list, list, str) -> list
+    (list, list, str, str) -> list
     
     Returns a list representation of the original read by merging the extracted and processed
     read sequences and qualities
@@ -1116,6 +1116,8 @@ def _merge_reads(extracted_read, processed_read, separator):
     - extracted_read (list): List representation of a read with sequence extracted with barcodex
     - processed_read (list): List representation of a read with annotated UMI with barcodex
     - separator (str): String separating the UMI sequence and part of the read header
+    - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime 
     '''
 
     # remove end of line from each read line
@@ -1125,14 +1127,18 @@ def _merge_reads(extracted_read, processed_read, separator):
     new_name = _restore_read_name(read_name_processed, separator)
     if read_name_extracted != new_name:
         raise ValueError('Unexpected name differences in processed and extracted reads')  
-    new_read_seq = extracted_read[1] + processed_read[1]
-    new_quals = extracted_read[3] + processed_read[3]
+    if umi_pos == '5prime':
+        new_read_seq = extracted_read[1] + processed_read[1]
+        new_quals = extracted_read[3] + processed_read[3]
+    elif umi_pos == '3prime':
+        new_read_seq = processed_read[1] + extracted_read[1] 
+        new_quals = processed_read[3] + extracted_read[3]
     return [read_name_extracted, new_read_seq, extracted_read[2], new_quals]
     
 
-def _write_merged_reads(Reads, separator, writer, discarded):
+def _write_merged_reads(Reads, separator, writer, discarded, umi_pos):
     '''
-    (zip, str, _io.TextIOWrapper, _io.TextIOWrapper | None) -> None
+    (zip, str, _io.TextIOWrapper, _io.TextIOWrapper | None, str) -> None
     
     Write restored reads to output fastq including the discarded reads that didn't
     match the extraction pattern if such reads exist 
@@ -1145,6 +1151,8 @@ def _write_merged_reads(Reads, separator, writer, discarded):
                                   The output file is compressed with gzip (highest compression, level 9)
     - discarded (_io.TextIOWrapper | None): File handler for reading reads that didn't match patterns during extraction with barcodex
                                             or None if no reads were discarded and file doesn't exist
+     - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime
     '''
     
     # loop over iterator with slices of 4 read lines from each file
@@ -1152,7 +1160,7 @@ def _write_merged_reads(Reads, separator, writer, discarded):
         # remove end of line from each read line
         read = _read_cleanup(read)
         if len(read) == 2:
-            new_read = _merge_reads(read[0], read[1], separator)
+            new_read = _merge_reads(read[0], read[1], separator, umi_pos)
         else:
             new_name = _restore_read_name(read[0][0], separator)
             new_read = [new_name, read[0][1], read[0][2], read[0][3]]
@@ -1184,9 +1192,9 @@ def _get_reads_from_fastqs(processed, extracted):
     return Reads
 
 
-def reconstruct_fastqs_inline(prefix, separator, r1_processed, r1_extracted=None, r1_discarded=None, r2_processed=None, r2_extracted=None, r2_discarded=None):
+def reconstruct_fastqs_inline(prefix, separator, umi_pos, r1_processed, r1_extracted=None, r1_discarded=None, r2_processed=None, r2_extracted=None, r2_discarded=None):
     '''
-    (str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
+    (str, str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
     
     Write the original reads with UMIs to FASTQs.  
     Always output a single or paired FASTQs regardless of the number of input FASTQs
@@ -1197,6 +1205,8 @@ def reconstruct_fastqs_inline(prefix, separator, r1_processed, r1_extracted=None
     ----------
     - prefix (str): Specifies the start of the output file(s)
     - separator (str): String separating the UMI sequence and part of the read header
+    - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime
     - r1_processed (str): FASTQ 1 with UMI-annotated reads 
     - r1_extracted (str | None): FASTQ with extracted read 1 sequences or None if UMI not extracted 
     - r1_discarded (str | None): FASTQ with non-matching read 1 sequences if reads didn't
@@ -1219,15 +1229,15 @@ def reconstruct_fastqs_inline(prefix, separator, r1_processed, r1_extracted=None
     Reads1 = _get_reads_from_fastqs(processed1, extracted1)
     
     # merge reads and write to output fastqs
-    _write_merged_reads(Reads1, separator, r1_writer, discarded1)
+    _write_merged_reads(Reads1, separator, r1_writer, discarded1, umi_pos)
     r1_writer.close()
 
     # check if paired end sequencing
     if processed2:
         Reads2 = _get_reads_from_fastqs(processed2, extracted2)
-        _write_merged_reads(Reads2, separator, r2_writer, discarded2)
+        _write_merged_reads(Reads2, separator, r2_writer, discarded2, umi_pos)
         r2_writer.close()
-
+    
     for i in [processed1, extracted1, discarded1, processed2, extracted2, discarded2]:
         if i:
             i.close()
