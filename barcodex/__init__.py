@@ -1243,7 +1243,64 @@ def reconstruct_fastqs_inline(prefix, separator, umi_pos, r1_processed, r1_extra
             i.close()
 
 
+def reconstruct_fastqs_separate(prefix, separator, r1_processed, umi_extracted, r1_discarded=None, r2_processed=None, r2_discarded=None, umi_discarded=None):
+    '''
+    (str, str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
+    (str, str, str, str, str | None, str | None, str | none, str | None)
     
+    Write the original reads and UMIs to separate FASTQs.  
+    Always output 2 or 3 FASTQs (1 or 2 FASTQs with reads and 1 FASTQ with UMIs),
+    respectively for single end and paired end, regardless of the number of input FASTQs
+    during extraction (ie. equivalent of merging all input fastqs).
+    Output fastqs are in sync but the read order may be different than order
+    in the original FASTQs 
+    
+    Parameters
+    ----------
+    - prefix (str): Specifies the start of the output file(s)
+    - separator (str): String separating the UMI sequence and part of the read header
+    - r1_processed (str): FASTQ 1 with UMI-annotated reads 
+    - umi_extracted (str): FASTQ with valid UMIs annotating reads in FASTQ 1 and/or FASTQ 2
+    - r1_discarded (str | None): FASTQ 1 with rejected reads because of invalid UMIs if any or None
+    - r2_processed (str): FASTQ 2 with UMI-annotated reads for paired end or None
+    - r2_discarded (str | None): FASTQ 2 with rejected reads because of invalid UMIs if any or None
+    - umi_discarded (str | None): FASTQ with invalid UMIs that are not in processed FASTQs
+    '''
+    
+    # open files for reading
+    processed1, discarded1, processed2, discarded2, extracted_umi, discarded_umi = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r1_processed, r1_discarded, r2_processed, r2_discarded, umi_extracted, umi_discarded]))
+    
+    # open outfiles for writing
+    r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
+    umi_writer = _open_fastq_writing(prefix + '_umi.fastq.gz') 
+    r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_processed else None
+    
+    # create iterator with reads from each file
+    Reads1 = _get_reads_from_fastqs(processed1, None)
+    # merge reads and write to output fastqs
+    _write_merged_reads(Reads1, separator, r1_writer, discarded1)
+    r1_writer.close()
+
+    # write umi to fastqs
+    if extracted_umi:
+        for line in extracted_umi:
+            umi_writer.write(str.encode(line))
+        if discarded_umi:
+            for line in discarded_umi:
+                umi_writer.write(str.encode(line))
+        umi_writer.close()
+        
+    # write reads 2 to fastqs if paired end
+    if processed2:
+        Reads2 = _get_reads_from_fastqs(processed2, None)
+        # merge reads and write to output fastqs
+        _write_merged_reads(Reads2, separator, r2_writer, discarded2)
+        r2_writer.close()
+    
+    for i in [processed1, discarded1, processed2, discarded2, extracted_umi, discarded_umi]:
+        if i:
+            i.close()
+
 def main():
     # create parser
     parser = argparse.ArgumentParser(prog='barcodex.py', description='A package for extracting Unique Molecular Identifiers (UMIs) from single or paired read sequencing data')
