@@ -964,30 +964,22 @@ def extract_barcodes_separate(r1_in, prefix, ru_in, r2_in=None, separator='_', u
     # check that the number of input files is the same for paired end data
     _check_input_files(r1_in, ru_in, r2_in)
     
-    # open outfiles for writing
+    # open outfiles for writing processed reads to fastqs
     r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
     r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_in else None
-    
-    # open optional files for writing. same directory as output fastqs
-    # open files for writing rejected reads
-    r1_discarded, r2_discarded = None, None
-    r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
-    if r2_in:
-        # data is paired. open file to discard read 2
-        r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz')
-    
     # open file for writing valid UMIs used to annotate reads 
     ru_writer = _open_fastq_writing(prefix + '_extracted_umis.fastq.gz')
-    
-    # open file for writing rejected UMIs
-    if umilist:
-        ru_discarded = _open_fastq_writing(prefix + '_discarded_umis.fastq.gz')
-    else:
-        ru_discarded = None
+        
+    # open optional files for writing. same directory as output fastqs
+    # open files for writing rejected reads
+    r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
+    # open file to discard read 2 if paired data
+    r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz') if r2_in else None
+    # open file for discarded umis if umilist provided
+    ru_discarded = _open_fastq_writing(prefix + '_discarded_umis.fastq.gz') if umilist else None
     
     # make a list of files open for writing
     outfastqs = [i for i in [r1_writer, ru_writer, r2_writer] if i is not None]
-
     # make lists of optional files
     discarded_fastqs = [i for i in [r1_discarded, ru_discarded, r2_discarded] if i is not None]
         
@@ -1040,13 +1032,13 @@ def extract_barcodes_separate(r1_in, prefix, ru_in, r2_in=None, separator='_', u
                 # add umi sequence to read names
                 readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                 # add back the original read name in the fastq with umi
-                readnames[1][0] = ru_name
+                readnames[1] = ru_name
                 # keep read sequence and qualities
                 newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read))]
                 # write new reads to output fastq
                 for i in range(len(outfastqs)):
-                    outfastqs[i].write(str.encode('\n'.join(newreads[i]) +'\n'))
-                
+                    outfastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), newreads[i]))) +'\n'))
+                    
                 # update umi counter. keep track of UMI origin
                 umi_counts[umi] = umi_counts.get(umi, 0) + 1
             
