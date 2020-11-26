@@ -985,7 +985,9 @@ def extract_barcodes_separate(r1_in, prefix, ru_in, r2_in=None, separator='_', u
         
     # check if list of accepted barcodes provides
     if umilist:
-        barcodes = _get_valid_barcodes(umilist)
+        infile = open(umilist)
+        barcodes = list(map(lambda x: x.strip(), infile.read().rstrip().split('\n')))
+        infile.close()
     
     # count all reads and reads with matching and non-matching patterns
     Total, Matching, NonMatching, Rejected = 0, 0, 0, 0
