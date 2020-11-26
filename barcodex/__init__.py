@@ -943,22 +943,17 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
     print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
 
 
-def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_match=False, separator='_', umilist=None):
+def extract_barcodes_separate(r1_in, prefix, ru_in, r2_in=None, separator='_', umilist=None):
     '''
-    (list, str, str, list, list | None, bool, str, str | None) -> None
+    (list, str, list, list | None, str, str | None) -> None
 
     Parameters
     ----------
 
     - r1_in (list): Path(s) to the input FASTQ 1
-    - pattern1 (str): String sequence or regular expression used for matching and extracting UMis
-                      from reads in FASTQ 2 (single end )or FASTQ2 (paired end). 
-                      The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
-                      Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads
     - prefix (str): Specifies the start of the output files and stats json files
-    - ru_in (list): Path(s) to input FASTQ containing UMis
+    - ru_in (list): Path(s) to input FASTQ containing UMIs
     - r2_in (list or None): Path(s) to input FASTQ 2 for paired  
-    - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
     - umilist (str or None): Path to file with accepted barcodes
     '''
@@ -974,23 +969,27 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
     r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_in else None
     
     # open optional files for writing. same directory as output fastqs
-    # open files for writing reads without matching patterns
+    # open files for writing rejected reads
     r1_discarded, r2_discarded = None, None
     r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
     if r2_in:
         # data is paired. open file to discard read 2
         r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz')
-    # open files for writing reads with extracted sequences (UMI and discarded sequences)
-    ru_extracted = _open_fastq_writing(prefix + '_extracted.fastq.gz')
-        
-    # get pattern variables for each read 
-    seq_extract, UMI, spacer, ps = _get_read_patterns(pattern1)
-        
+    
+    # open file for writing valid UMIs used to annotate reads 
+    ru_writer = _open_fastq_writing(prefix + '_extracted_umis.fastq.gz')
+    
+    # open file for writing rejected UMIs
+    if umilist:
+        ru_discarded = _open_fastq_writing(prefix + '_discarded_umis.fastq.gz')
+    else:
+        ru_discarded = None
+    
     # make a list of files open for writing
-    outfastqs = [i for i in [r1_writer, r2_writer] if i is not None]
+    outfastqs = [i for i in [r1_writer, ru_writer, r2_writer] if i is not None]
 
     # make lists of optional files
-    discarded_fastqs = [i for i in [r1_discarded, r2_discarded] if i is not None]
+    discarded_fastqs = [i for i in [r1_discarded, ru_discarded, r2_discarded] if i is not None]
         
     # check if list of accepted barcodes provides
     if umilist:
@@ -1018,62 +1017,49 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
         for read in Reads:
             # remove end of line from each read line
             read = _read_cleanup(read)
-            # reset variable at each iteration. used to evaluate match
-            umi = ''
             # check that input fastqs are in sync
             _check_fastq_sync([i[0] for i in read])
+            # get umi sequence from fastq
+            umi = read[1][1]
             # count total reads
             Total += 1
-            # extract umis from reads
-            # UMIs are in fastq2 or fastq3 respectively for single and paired end data
-            L = _extract_umi_from_read(read[-1], seq_extract, UMI, spacer, ps, full_match)
-            # get umi sequences
-            umi = L[2]
             
-            # check if umi matched pattern
-            if umi:
-                # check if list of accepted barcodes
-                # check if concatenated umi in list of valid barcodes
-                if umilist and umi not in barcodes:
-                    # skip umis not listed
-                    Rejected += 1
-                    # write non-matching reads to file
-                    for i in range(len(discarded_fastqs)):
-                        discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
-                else:
-                    Matching +=1
-                    # get read names, read, umi and extracted sequences and qualities for single and paired end
-                    readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
-                    seqs, quals, umi_seqs, extracted_seqs, extracted_quals = L
-                    assert umi == umi_seqs
-                    # update umi counter. keep track of UMI origin
-                    umi_counts[umi] = umi_counts.get(umi, 0) + 1
-                                        
-                    # single end: umi extracted from read 2. paired end: umi extracted from read 3
-                    # keep read sequence and qualities
-                    newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
-                    ru_extracted.write(str.encode('\n'.join([read[-1][0], extracted_seqs, read[-1][2], extracted_quals]) + '\n'))
-                    
-                    # write new reads to output fastq
-                    for i in range(len(outfastqs)):
-                        outfastqs[i].write(str.encode('\n'.join(newreads[i]) +'\n'))
-            else:
-                NonMatching += 1
-                # write non-matching reads to file
+            # check if list of accepted barcodes
+            # check if concatenated umi in list of valid barcodes
+            if umilist and umi not in barcodes:
+                # skip umis not listed
+                Rejected += 1
+                # write rjected reads to file
                 for i in range(len(discarded_fastqs)):
                     discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
-
-    
+            else:
+                Matching +=1
+                # get read names, read, umi and extracted sequences and qualities for single and paired end
+                # get the read name of the read in the fastqs with umi 
+                ru_name = read[1][0]
+                # add umi sequence to read names
+                readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
+                # add back the original read name in the fastq with umi
+                readnames[1][0] = ru_name
+                # keep read sequence and qualities
+                newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read))]
+                # write new reads to output fastq
+                for i in range(len(outfastqs)):
+                    outfastqs[i].write(str.encode('\n'.join(newreads[i]) +'\n'))
+                
+                # update umi counter. keep track of UMI origin
+                umi_counts[umi] = umi_counts.get(umi, 0) + 1
+            
         # close all input fastqs
         for i in infastqs:
             i.close()
         
     # close all output fastqs
-    for i in outfastqs + discarded_fastqs + [ru_extracted]:
+    for i in outfastqs + discarded_fastqs:
         i.close()
     
     # get extraction metrics
-    d = _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=pattern1, pattern2=None, umilist=umilist)
+    d = _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=None, pattern2=None, umilist=umilist)
     # save metrics to files
     _write_metrics(d, prefix + '_extraction_metrics.json')
     _write_metrics(umi_counts, prefix + '_UMI_counts.json')
