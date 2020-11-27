@@ -1225,8 +1225,7 @@ def reconstruct_fastqs_inline(prefix, separator, umi_pos, r1_processed, r1_extra
 
 def reconstruct_fastqs_separate(prefix, separator, r1_processed, umi_extracted, r1_discarded=None, r2_processed=None, r2_discarded=None, umi_discarded=None):
     '''
-    (str, str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
-    (str, str, str, str, str | None, str | None, str | none, str | None)
+    (str, str, str, str, str | None, str | None, str | none, str | None) -> None
     
     Write the original reads and UMIs to separate FASTQs.  
     Always output 2 or 3 FASTQs (1 or 2 FASTQs with reads and 1 FASTQ with UMIs),
@@ -1284,30 +1283,57 @@ def reconstruct_fastqs_separate(prefix, separator, r1_processed, umi_extracted, 
 def main():
     # create parser
     parser = argparse.ArgumentParser(prog='barcodex.py', description='A package for extracting Unique Molecular Identifiers (UMIs) from single or paired read sequencing data')
-    parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
     parser.add_argument('--prefix', dest='prefix', help='Specifies the start of the output files and stats json files', required=True)
     parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
+    
+    # create sub parsers to extract umis or restore fastqs from umi-extracted fastqs
     subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
-       	
-    # inline UMIs 
-    i_parser = subparsers.add_parser('inline', help="Extract UMIs located in read sequences")
-    i_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
-    i_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
-    i_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
-    i_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
-    i_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    extract_parser = subparsers.add_parser('extract', help ='Extract UMIs from fastqs')
+    extract_parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs')
+    restore_parser = subparsers.add_parser('restore', help ='Restore original fastqs')
+         
+    # create extract subparsers
+    extract_subparsers = extract_parser.add_subparsers(title='UMI extraction sub-commands', description='valid sub-commands', dest= 'extract_subparser_name', help = 'sub-commands help')
+    
+    # extract inline UMIs 
+    inline_extract_parser = extract_subparsers.add_parser('inline', help="Extract UMIs located in read sequences")
+    inline_extract_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
+    inline_extract_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
+    inline_extract_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
+    inline_extract_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
+    inline_extract_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
        
-    # UMI in separate file
-    s_parser = subparsers.add_parser('separate', help="Extract UMIs located in separate file")
-    s_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
-    s_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs')
-    s_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs', required=True)
-    s_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2')
-    s_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    # extract UMI in separate file
+    separate_extract_parser = extract_subparsers.add_parser('separate', help="Extract UMIs located in separate file")
+    separate_extract_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
+    separate_extract_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs', required=True)
+    separate_extract_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2')
+    
+    # create restore subparsers
+    restore_subparsers = restore_parser.add_subparsers(title='Restore FASTQs sub-commands', description='valid sub-commands', dest= 'restore_subparser_name', help = 'sub-commands help')
+    
+    # restore fastqs inline UMIs
+    inline_restore_parser = restore_subparsers.add_parser('inline', help="Restore FASTQs with inline UMIs from UMI-extracted FASTQs")
+    inline_restore_parser.add_argument('--umi_pos', dest='umi_pos', default='5prime', choices=['5prime', '3prime'], help='Relative position of the umi in the original read. Default is 5prime')
+    inline_restore_parser.add_argument('--r1_processed', dest='r1_processed', help='FASTQ 1 with UMI-annotated reads', required=True)
+    inline_restore_parser.add_argument('--r2_processed', dest='r2_processed', help='FASTQ 2 with UMI-annotated reads for paired-end sequences')
+    inline_restore_parser.add_argument('--r1_extracted', dest='r1_extracted', help='FASTQ with extracted read 1 sequences')
+    inline_restore_parser.add_argument('--r2_extracted', dest='r2_extracted', help='FASTQ with extracted read 2 sequences')
+    inline_restore_parser.add_argument('--r1_discarded', dest='r1_discarded', help='FASTQ with non-matching read 1 sequences')
+    inline_restore_parser.add_argument('--r2_discarded', dest='r2_discarded', help='FASTQ with non-matching read 2 sequences')
+    
+    # restore fastqs separate UMIs
+    separate_restore_parser = restore_subparsers.add_parser('separate', help="Restore FASTQs with separate UMIs from UMI-extracted FASTQs")
+    separate_restore_parser.add_argument('--r1_processed', dest='r1_processed', help='FASTQ 1 with UMI-annotated reads', required=True)
+    separate_restore_parser.add_argument('--r2_processed', dest='r2_processed', help='FASTQ 2 with UMI-annotated reads for paired-end sequences')
+    separate_restore_parser.add_argument('--r1_discarded', dest='r1_discarded', help='FASTQ with rejected read 1 sequences')
+    separate_restore_parser.add_argument('--r2_discarded', dest='r2_discarded', help='FASTQ with rejected read 2 sequences')
+    separate_restore_parser.add_argument('--umi_extracted', dest='umi_extracted', help='FASTQ with valid UMIs annotating reads in FASTQ 1 and/or FASTQ 2')
+    separate_restore_parser.add_argument('--umi_discarded', dest='umi_discarded', help='FASTQ with invalid UMIs that are not in processed FASTQs')
     
     args = parser.parse_args()
     
-    if args.subparser_name == 'inline':
+    if args.extract_subparser_name == 'inline':
         try:
             extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
                                     r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
@@ -1316,9 +1342,25 @@ def main():
             print('AttributeError: {0}\n'.format(e))
             print('#############\n\n')
             print(parser.format_help())
-    elif args.subparser_name == 'separate':
+    elif args.extract_subparser_name == 'separate':
         try:
-            extract_barcodes_separate(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, full_match=args.full_match, separator=args.separator, umilist=args.umilist)
+            extract_barcodes_separate(args.r1_in, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+        except AttributeError as e:
+            print('#############\n')
+            print('AttributeError: {0}\n'.format(e))
+            print('#############\n\n')
+            print(parser.format_help())
+    elif args.restore_subparser_name == 'inline':
+        try:
+            reconstruct_fastqs_inline(args.prefix, args.separator, args.umi_pos, args.r1_processed, r1_extracted=args.r1_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_extracted=args.r2_extracted, r2_discarded=args.r2_discarded)
+        except AttributeError as e:
+            print('#############\n')
+            print('AttributeError: {0}\n'.format(e))
+            print('#############\n\n')
+            print(parser.format_help())
+    elif args.restore_subparser_name == 'separate':
+        try:
+            reconstruct_fastqs_separate(args.prefix, args.separator, args.r1_processed, args.umi_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_discarded=args.r2_discarded, umi_discarded=args.umi_discarded)
         except AttributeError as e:
             print('#############\n')
             print('AttributeError: {0}\n'.format(e))
