@@ -943,22 +943,17 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
     print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
 
 
-def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_match=False, separator='_', umilist=None):
+def extract_barcodes_separate(r1_in, prefix, ru_in, r2_in=None, separator='_', umilist=None):
     '''
-    (list, str, str, list, list | None, bool, str, str | None) -> None
+    (list, str, list, list | None, str, str | None) -> None
 
     Parameters
     ----------
 
     - r1_in (list): Path(s) to the input FASTQ 1
-    - pattern1 (str): String sequence or regular expression used for matching and extracting UMis
-                      from reads in FASTQ 2 (single end )or FASTQ2 (paired end). 
-                      The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
-                      Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads
     - prefix (str): Specifies the start of the output files and stats json files
-    - ru_in (list): Path(s) to input FASTQ containing UMis
+    - ru_in (list): Path(s) to input FASTQ containing UMIs
     - r2_in (list or None): Path(s) to input FASTQ 2 for paired  
-    - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
     - umilist (str or None): Path to file with accepted barcodes
     '''
@@ -969,32 +964,30 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
     # check that the number of input files is the same for paired end data
     _check_input_files(r1_in, ru_in, r2_in)
     
-    # open outfiles for writing
+    # open outfiles for writing processed reads to fastqs
     r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
     r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_in else None
-    
+    # open file for writing valid UMIs used to annotate reads 
+    ru_writer = _open_fastq_writing(prefix + '_extracted_umis.fastq.gz')
+        
     # open optional files for writing. same directory as output fastqs
-    # open files for writing reads without matching patterns
-    r1_discarded, r2_discarded = None, None
+    # open files for writing rejected reads
     r1_discarded = _open_fastq_writing(prefix + '_discarded.R1.fastq.gz')
-    if r2_in:
-        # data is paired. open file to discard read 2
-        r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz')
-    # open files for writing reads with extracted sequences (UMI and discarded sequences)
-    ru_extracted = _open_fastq_writing(prefix + '_extracted.fastq.gz')
-        
-    # get pattern variables for each read 
-    seq_extract, UMI, spacer, ps = _get_read_patterns(pattern1)
-        
+    # open file to discard read 2 if paired data
+    r2_discarded = _open_fastq_writing(prefix + '_discarded.R2.fastq.gz') if r2_in else None
+    # open file for discarded umis if umilist provided
+    ru_discarded = _open_fastq_writing(prefix + '_discarded_umis.fastq.gz') if umilist else None
+    
     # make a list of files open for writing
-    outfastqs = [i for i in [r1_writer, r2_writer] if i is not None]
-
+    outfastqs = [i for i in [r1_writer, ru_writer, r2_writer] if i is not None]
     # make lists of optional files
-    discarded_fastqs = [i for i in [r1_discarded, r2_discarded] if i is not None]
+    discarded_fastqs = [i for i in [r1_discarded, ru_discarded, r2_discarded] if i is not None]
         
     # check if list of accepted barcodes provides
     if umilist:
-        barcodes = _get_valid_barcodes(umilist)
+        infile = open(umilist)
+        barcodes = list(map(lambda x: x.strip(), infile.read().rstrip().split('\n')))
+        infile.close()
     
     # count all reads and reads with matching and non-matching patterns
     Total, Matching, NonMatching, Rejected = 0, 0, 0, 0
@@ -1018,62 +1011,49 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
         for read in Reads:
             # remove end of line from each read line
             read = _read_cleanup(read)
-            # reset variable at each iteration. used to evaluate match
-            umi = ''
             # check that input fastqs are in sync
             _check_fastq_sync([i[0] for i in read])
+            # get umi sequence from fastq
+            umi = read[1][1]
             # count total reads
             Total += 1
-            # extract umis from reads
-            # UMIs are in fastq2 or fastq3 respectively for single and paired end data
-            L = _extract_umi_from_read(read[-1], seq_extract, UMI, spacer, ps, full_match)
-            # get umi sequences
-            umi = L[2]
             
-            # check if umi matched pattern
-            if umi:
-                # check if list of accepted barcodes
-                # check if concatenated umi in list of valid barcodes
-                if umilist and umi not in barcodes:
-                    # skip umis not listed
-                    Rejected += 1
-                    # write non-matching reads to file
-                    for i in range(len(discarded_fastqs)):
-                        discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
-                else:
-                    Matching +=1
-                    # get read names, read, umi and extracted sequences and qualities for single and paired end
-                    readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
-                    seqs, quals, umi_seqs, extracted_seqs, extracted_quals = L
-                    assert umi == umi_seqs
-                    # update umi counter. keep track of UMI origin
-                    umi_counts[umi] = umi_counts.get(umi, 0) + 1
-                                        
-                    # single end: umi extracted from read 2. paired end: umi extracted from read 3
-                    # keep read sequence and qualities
-                    newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read) -1)]
-                    ru_extracted.write(str.encode('\n'.join([read[-1][0], extracted_seqs, read[-1][2], extracted_quals]) + '\n'))
-                    
-                    # write new reads to output fastq
-                    for i in range(len(outfastqs)):
-                        outfastqs[i].write(str.encode('\n'.join(newreads[i]) +'\n'))
-            else:
-                NonMatching += 1
-                # write non-matching reads to file
+            # check if list of accepted barcodes
+            # check if concatenated umi in list of valid barcodes
+            if umilist and umi not in barcodes:
+                # skip umis not listed
+                Rejected += 1
+                # write rjected reads to file
                 for i in range(len(discarded_fastqs)):
                     discarded_fastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), read[i]))) + '\n'))
-
-    
+            else:
+                Matching +=1
+                # get read names, read, umi and extracted sequences and qualities for single and paired end
+                # get the read name of the read in the fastqs with umi 
+                ru_name = read[1][0]
+                # add umi sequence to read names
+                readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
+                # add back the original read name in the fastq with umi
+                readnames[1] = ru_name
+                # keep read sequence and qualities
+                newreads = [[readnames[i], read[i][1], read[i][2], read[i][3]] for i in range(len(read))]
+                # write new reads to output fastq
+                for i in range(len(outfastqs)):
+                    outfastqs[i].write(str.encode('\n'.join(list(map(lambda x: x.strip(), newreads[i]))) +'\n'))
+                    
+                # update umi counter. keep track of UMI origin
+                umi_counts[umi] = umi_counts.get(umi, 0) + 1
+            
         # close all input fastqs
         for i in infastqs:
             i.close()
         
     # close all output fastqs
-    for i in outfastqs + discarded_fastqs + [ru_extracted]:
+    for i in outfastqs + discarded_fastqs:
         i.close()
     
     # get extraction metrics
-    d = _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=pattern1, pattern2=None, umilist=umilist)
+    d = _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=None, pattern2=None, umilist=umilist)
     # save metrics to files
     _write_metrics(d, prefix + '_extraction_metrics.json')
     _write_metrics(umi_counts, prefix + '_UMI_counts.json')
@@ -1082,50 +1062,312 @@ def extract_barcodes_separate(r1_in, pattern1, prefix, ru_in, r2_in=None, full_m
     end = time.time()
     print('Extracted UMIs in {0} seconds'.format(round(end - start, 3)))
 
+
+def _restore_read_name(read_name, separator):
+    '''
+    (str, str) -> str
+
+    Returns the original read name without the UMI sequence 
+
+    Parameters
+    ----------
+    - read_name (str): Read name with annotated UMI 
+    - separator (str): String separating the UMI sequence and part of the read header
+    '''
     
+    try:
+        name_start, name_end = read_name.split(separator)
+    except:
+        raise ValueError('separator {0} not found in read name')
+    
+    new_name = ' '.join([name_start, name_end.split()[-1]])
+    return new_name
+
+
+def _merge_reads(extracted_read, processed_read, separator, umi_pos):
+    '''
+    (list, list, str, str) -> list
+    
+    Returns a list representation of the original read by merging the extracted and processed
+    read sequences and qualities
+        
+    Parameters
+    ----------
+    - extracted_read (list): List representation of a read with sequence extracted with barcodex
+    - processed_read (list): List representation of a read with annotated UMI with barcodex
+    - separator (str): String separating the UMI sequence and part of the read header
+    - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime 
+    '''
+
+    # remove end of line from each read line
+    read_name_extracted = extracted_read[0]
+    read_name_processed = processed_read[0]
+    
+    new_name = _restore_read_name(read_name_processed, separator)
+    if read_name_extracted != new_name:
+        raise ValueError('Unexpected name differences in processed and extracted reads')  
+    if umi_pos == '5prime':
+        new_read_seq = extracted_read[1] + processed_read[1]
+        new_quals = extracted_read[3] + processed_read[3]
+    elif umi_pos == '3prime':
+        new_read_seq = processed_read[1] + extracted_read[1] 
+        new_quals = processed_read[3] + extracted_read[3]
+    return [read_name_extracted, new_read_seq, extracted_read[2], new_quals]
+    
+
+def _write_merged_reads(Reads, separator, writer, discarded, umi_pos):
+    '''
+    (zip, str, _io.TextIOWrapper, _io.TextIOWrapper | None, str) -> None
+    
+    Write restored reads to output fastq including the discarded reads that didn't
+    match the extraction pattern if such reads exist 
+    
+    Parameters
+    ----------
+    - Reads (zip): Iterator loaded with read 
+    - separator (str): String separating the UMI sequence and part of the read header
+    - writer (_io.TextIOWrapper): File handler for writing reads to output fastq.
+                                  The output file is compressed with gzip (highest compression, level 9)
+    - discarded (_io.TextIOWrapper | None): File handler for reading reads that didn't match patterns during extraction with barcodex
+                                            or None if no reads were discarded and file doesn't exist
+     - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime
+    '''
+    
+    # loop over iterator with slices of 4 read lines from each file
+    for read in Reads:
+        # remove end of line from each read line
+        read = _read_cleanup(read)
+        if len(read) == 2:
+            new_read = _merge_reads(read[0], read[1], separator, umi_pos)
+        else:
+            new_name = _restore_read_name(read[0][0], separator)
+            new_read = [new_name, read[0][1], read[0][2], read[0][3]]
+        writer.write(str.encode('\n'.join(list(map(lambda x: x.strip(), new_read))) + '\n'))
+        
+    # check if some reads were discarded because of non-matching patterns
+    if discarded:
+        for line in discarded:
+            writer.write(str.encode(line))
+    
+
+def _get_reads_from_fastqs(processed, extracted):
+    '''
+    (_io.TextIOWrapper, _io.TextIOWrapper | None) -> zip
+
+    Returns an iterator loaded with processed but intact reads if UMIs were not extracted
+    or loaded with processed UMI-extracted reads and with reads with extracted sequences if UMI were indeed extracted 
+    
+    Parameters
+    ----------
+    - processed (_io.TextIOWrapper): File handler for reading processed reads (intacts or UMI-extracted) 
+    - extracted (_io.TextIOWrapper | None): File handler for reading reads with extracted sequences or None
+    '''
+    
+    if extracted:
+        Reads = zip(*map(lambda x: _get_read(x), [extracted, processed]))
+    else:
+        Reads = zip(*map(lambda x: _get_read(x), [processed]))
+    return Reads
+
+
+def reconstruct_fastqs_inline(prefix, separator, umi_pos, r1_processed, r1_extracted=None, r1_discarded=None, r2_processed=None, r2_extracted=None, r2_discarded=None):
+    '''
+    (str, str, str, str, str | None, str | None, str | None, str | None, str | None) -> None
+    
+    Write the original reads with UMIs to FASTQs.  
+    Always output a single or paired FASTQs regardless of the number of input FASTQs
+    during extraction (ie. equivalent of merging all input fastqs).
+    Paired output fastqs are in sync but the read order may be different than order in the original FASTQs 
+    
+    Parameters
+    ----------
+    - prefix (str): Specifies the start of the output file(s)
+    - separator (str): String separating the UMI sequence and part of the read header
+    - umi_pos (str): Relative position of the umi in the original read. 
+                     Accepted values: 3prime, 5prime
+    - r1_processed (str): FASTQ 1 with UMI-annotated reads 
+    - r1_extracted (str | None): FASTQ with extracted read 1 sequences or None if UMI not extracted 
+    - r1_discarded (str | None): FASTQ with non-matching read 1 sequences if reads didn't
+                                 match pattern1 during extraction or None
+    - r2_processed (str | None): FASTQ 2 with UMI-annotated reads for paired end sequences or None
+    - r2_extracted (str | None): FASTQ with extracted read 2 sequences or None if UMI not extracted 
+    - r2_discarded (str | None): FASTQ with non-matching read 2 sequences if reads didn't
+                                 match pattern2 during extraction or None
+    '''
+    
+    # open files for reading
+    processed1, extracted1, discarded1 = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r1_processed, r1_extracted, r1_discarded]))
+    processed2, extracted2, discarded2 = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r2_processed, r2_extracted, r2_discarded]))
+    
+    # open outfiles for writing
+    r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
+    r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_processed else None
+    
+    # create iterator with reads from each file
+    Reads1 = _get_reads_from_fastqs(processed1, extracted1)
+    
+    # merge reads and write to output fastqs
+    _write_merged_reads(Reads1, separator, r1_writer, discarded1, umi_pos)
+    r1_writer.close()
+
+    # check if paired end sequencing
+    if processed2:
+        Reads2 = _get_reads_from_fastqs(processed2, extracted2)
+        _write_merged_reads(Reads2, separator, r2_writer, discarded2, umi_pos)
+        r2_writer.close()
+    
+    for i in [processed1, extracted1, discarded1, processed2, extracted2, discarded2]:
+        if i:
+            i.close()
+
+
+def reconstruct_fastqs_separate(prefix, separator, r1_processed, umi_extracted, r1_discarded=None, r2_processed=None, r2_discarded=None, umi_discarded=None):
+    '''
+    (str, str, str, str, str | None, str | None, str | none, str | None) -> None
+    
+    Write the original reads and UMIs to separate FASTQs.  
+    Always output 2 or 3 FASTQs (1 or 2 FASTQs with reads and 1 FASTQ with UMIs),
+    respectively for single end and paired end, regardless of the number of input FASTQs
+    during extraction (ie. equivalent of merging all input fastqs).
+    Output fastqs are in sync but the read order may be different than order
+    in the original FASTQs 
+    
+    Parameters
+    ----------
+    - prefix (str): Specifies the start of the output file(s)
+    - separator (str): String separating the UMI sequence and part of the read header
+    - r1_processed (str): FASTQ 1 with UMI-annotated reads 
+    - umi_extracted (str): FASTQ with valid UMIs annotating reads in FASTQ 1 and/or FASTQ 2
+    - r1_discarded (str | None): FASTQ 1 with rejected reads because of invalid UMIs if any or None
+    - r2_processed (str): FASTQ 2 with UMI-annotated reads for paired end or None
+    - r2_discarded (str | None): FASTQ 2 with rejected reads because of invalid UMIs if any or None
+    - umi_discarded (str | None): FASTQ with invalid UMIs that are not in processed FASTQs
+    '''
+    
+    # open files for reading
+    processed1, discarded1, processed2, discarded2, extracted_umi, discarded_umi = list(map(lambda x: gzip.open(x, 'rt') if x else None, [r1_processed, r1_discarded, r2_processed, r2_discarded, umi_extracted, umi_discarded]))
+    
+    # open outfiles for writing
+    r1_writer = _open_fastq_writing(prefix + '_R1.fastq.gz')
+    umi_writer = _open_fastq_writing(prefix + '_umi.fastq.gz') 
+    r2_writer = _open_fastq_writing(prefix + '_R2.fastq.gz') if r2_processed else None
+    
+    # create iterator with reads from each file
+    Reads1 = _get_reads_from_fastqs(processed1, None)
+    # merge reads and write to output fastqs
+    _write_merged_reads(Reads1, separator, r1_writer, discarded1)
+    r1_writer.close()
+
+    # write umi to fastqs
+    if extracted_umi:
+        for line in extracted_umi:
+            umi_writer.write(str.encode(line))
+        if discarded_umi:
+            for line in discarded_umi:
+                umi_writer.write(str.encode(line))
+        umi_writer.close()
+        
+    # write reads 2 to fastqs if paired end
+    if processed2:
+        Reads2 = _get_reads_from_fastqs(processed2, None)
+        # merge reads and write to output fastqs
+        _write_merged_reads(Reads2, separator, r2_writer, discarded2)
+        r2_writer.close()
+    
+    for i in [processed1, discarded1, processed2, discarded2, extracted_umi, discarded_umi]:
+        if i:
+            i.close()
+
 def main():
     # create parser
     parser = argparse.ArgumentParser(prog='barcodex.py', description='A package for extracting Unique Molecular Identifiers (UMIs) from single or paired read sequencing data')
-    parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs (1st column)')
     parser.add_argument('--prefix', dest='prefix', help='Specifies the start of the output files and stats json files', required=True)
     parser.add_argument('--separator', dest='separator', default='_', help='String separating the UMI sequence in the read name')
+    
+    # create sub parsers to extract umis or restore fastqs from umi-extracted fastqs
     subparsers = parser.add_subparsers(help='sub-command help', dest='subparser_name')
-       	
-    # inline UMIs 
-    i_parser = subparsers.add_parser('inline', help="Extract UMIs located in read sequences")
-    i_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
-    i_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
-    i_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
-    i_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
-    i_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    extract_parser = subparsers.add_parser('extract', help ='Extract UMIs from fastqs')
+    extract_parser.add_argument('--umilist', dest='umilist', help='Path to file with valid UMIs')
+    restore_parser = subparsers.add_parser('restore', help ='Restore original fastqs')
+         
+    # create extract subparsers
+    extract_subparsers = extract_parser.add_subparsers(title='UMI extraction sub-commands', description='valid sub-commands', dest= 'extract_subparser_name', help = 'sub-commands help')
+    
+    # extract inline UMIs 
+    inline_extract_parser = extract_subparsers.add_parser('inline', help="Extract UMIs located in read sequences")
+    inline_extract_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
+    inline_extract_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs in read 1')
+    inline_extract_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
+    inline_extract_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
+    inline_extract_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
        
-    # UMI in separate file
-    s_parser = subparsers.add_parser('separate', help="Extract UMIs located in separate file")
-    s_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
-    s_parser.add_argument('--pattern1', dest='pattern1', help='Barcode string of regex for extracting UMIs')
-    s_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs', required=True)
-    s_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2')
-    s_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
+    # extract UMI in separate file
+    separate_extract_parser = extract_subparsers.add_parser('separate', help="Extract UMIs located in separate file")
+    separate_extract_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
+    separate_extract_parser.add_argument('--ru_in', dest='ru_in', nargs='*', help='Path to input FASTQ containing UMIs', required=True)
+    separate_extract_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2')
+    
+    # create restore subparsers
+    restore_subparsers = restore_parser.add_subparsers(title='Restore FASTQs sub-commands', description='valid sub-commands', dest= 'restore_subparser_name', help = 'sub-commands help')
+    
+    # restore fastqs inline UMIs
+    inline_restore_parser = restore_subparsers.add_parser('inline', help="Restore FASTQs with inline UMIs from UMI-extracted FASTQs")
+    inline_restore_parser.add_argument('--umi_pos', dest='umi_pos', default='5prime', choices=['5prime', '3prime'], help='Relative position of the umi in the original read. Default is 5prime')
+    inline_restore_parser.add_argument('--r1_processed', dest='r1_processed', help='FASTQ 1 with UMI-annotated reads', required=True)
+    inline_restore_parser.add_argument('--r2_processed', dest='r2_processed', help='FASTQ 2 with UMI-annotated reads for paired-end sequences')
+    inline_restore_parser.add_argument('--r1_extracted', dest='r1_extracted', help='FASTQ with extracted read 1 sequences')
+    inline_restore_parser.add_argument('--r2_extracted', dest='r2_extracted', help='FASTQ with extracted read 2 sequences')
+    inline_restore_parser.add_argument('--r1_discarded', dest='r1_discarded', help='FASTQ with non-matching read 1 sequences')
+    inline_restore_parser.add_argument('--r2_discarded', dest='r2_discarded', help='FASTQ with non-matching read 2 sequences')
+    
+    # restore fastqs separate UMIs
+    separate_restore_parser = restore_subparsers.add_parser('separate', help="Restore FASTQs with separate UMIs from UMI-extracted FASTQs")
+    separate_restore_parser.add_argument('--r1_processed', dest='r1_processed', help='FASTQ 1 with UMI-annotated reads', required=True)
+    separate_restore_parser.add_argument('--r2_processed', dest='r2_processed', help='FASTQ 2 with UMI-annotated reads for paired-end sequences')
+    separate_restore_parser.add_argument('--r1_discarded', dest='r1_discarded', help='FASTQ with rejected read 1 sequences')
+    separate_restore_parser.add_argument('--r2_discarded', dest='r2_discarded', help='FASTQ with rejected read 2 sequences')
+    separate_restore_parser.add_argument('--umi_extracted', dest='umi_extracted', help='FASTQ with valid UMIs annotating reads in FASTQ 1 and/or FASTQ 2')
+    separate_restore_parser.add_argument('--umi_discarded', dest='umi_discarded', help='FASTQ with invalid UMIs that are not in processed FASTQs')
     
     args = parser.parse_args()
     
-    if args.subparser_name == 'inline':
-        try:
-            extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
-                                    r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
-    elif args.subparser_name == 'separate':
-        try:
-            extract_barcodes_separate(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, full_match=args.full_match, separator=args.separator, umilist=args.umilist)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
+    if args.subparser_name == 'extract':
+        if args.extract_subparser_name == 'inline':
+            try:
+                extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
+                                        r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+        elif args.extract_subparser_name == 'separate':
+            try:
+                extract_barcodes_separate(args.r1_in, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+    elif args.subparser_name == 'restore':
+        if args.restore_subparser_name == 'inline':
+            try:
+                reconstruct_fastqs_inline(args.prefix, args.separator, args.umi_pos, args.r1_processed, r1_extracted=args.r1_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_extracted=args.r2_extracted, r2_discarded=args.r2_discarded)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+        elif args.restore_subparser_name == 'separate':
+            try:
+                reconstruct_fastqs_separate(args.prefix, args.separator, args.r1_processed, args.umi_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_discarded=args.r2_discarded, umi_discarded=args.umi_discarded)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
     elif args.subparser_name is None:
         print(parser.format_help())
     
