@@ -1333,39 +1333,41 @@ def main():
     
     args = parser.parse_args()
     
-    if args.extract_subparser_name == 'inline':
-        try:
-            extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
-                                    r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
-    elif args.extract_subparser_name == 'separate':
-        try:
-            extract_barcodes_separate(args.r1_in, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
-    elif args.restore_subparser_name == 'inline':
-        try:
-            reconstruct_fastqs_inline(args.prefix, args.separator, args.umi_pos, args.r1_processed, r1_extracted=args.r1_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_extracted=args.r2_extracted, r2_discarded=args.r2_discarded)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
-    elif args.restore_subparser_name == 'separate':
-        try:
-            reconstruct_fastqs_separate(args.prefix, args.separator, args.r1_processed, args.umi_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_discarded=args.r2_discarded, umi_discarded=args.umi_discarded)
-        except AttributeError as e:
-            print('#############\n')
-            print('AttributeError: {0}\n'.format(e))
-            print('#############\n\n')
-            print(parser.format_help())
+    if args.subparser_name == 'extract':
+        if args.extract_subparser_name == 'inline':
+            try:
+                extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
+                                        r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+        elif args.extract_subparser_name == 'separate':
+            try:
+                extract_barcodes_separate(args.r1_in, prefix=args.prefix, ru_in=args.ru_in, r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+    elif args.subparser_name == 'restore':
+        if args.restore_subparser_name == 'inline':
+            try:
+                reconstruct_fastqs_inline(args.prefix, args.separator, args.umi_pos, args.r1_processed, r1_extracted=args.r1_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_extracted=args.r2_extracted, r2_discarded=args.r2_discarded)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
+        elif args.restore_subparser_name == 'separate':
+            try:
+                reconstruct_fastqs_separate(args.prefix, args.separator, args.r1_processed, args.umi_extracted, r1_discarded=args.r1_discarded, r2_processed=args.r2_processed, r2_discarded=args.r2_discarded, umi_discarded=args.umi_discarded)
+            except AttributeError as e:
+                print('#############\n')
+                print('AttributeError: {0}\n'.format(e))
+                print('#############\n\n')
+                print(parser.format_help())
     elif args.subparser_name is None:
         print(parser.format_help())
     
