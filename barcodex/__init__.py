@@ -1076,13 +1076,19 @@ def _restore_read_name(read_name, separator):
     - read_name (str): Read name with annotated UMI 
     - separator (str): String separating the UMI sequence and part of the read header
     '''
-    
+        
+    name_start, name_end = read_name.split()
+    # umis are in name_start
     try:
-        name_start, name_end = read_name.split(separator)
+        L = name_start.split(separator)    
     except:
-        raise ValueError('separator {0} not found in read name')
+        raise ValueError('separator {0} not found in read name'.format(separator))
     
-    new_name = ' '.join([name_start, name_end.split()[-1]])
+    # remove umis from name start
+    name_start = L[:-1]
+    name_start = separator.join(name_start)
+    new_name = ' '.join([name_start, name_end])
+       
     return new_name
 
 
@@ -1341,7 +1347,7 @@ def main():
         if args.extract_subparser_name == 'inline':
             try:
                 extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
-                                        r2_in=args.r2_in, separator=args.separator, umi_separator = args.separator, umilist=args.umilist)
+                                        r2_in=args.r2_in, separator=args.separator, umi_separator = args.umi_separator, umilist=args.umilist)
             except AttributeError as e:
                 print('#############\n')
                 print('AttributeError: {0}\n'.format(e))
