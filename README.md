@@ -20,7 +20,7 @@ BarcodEx extracts UMIs in read sequences or in fastqs with ```extract inline``` 
 
 ### Extracts UMIs in read sequences ###
 
-usage: ```barcodex --prefix PREFIX --separator SEPARATOR extract --umilist UMILIST inline --r1_in FASTQ1 --r2_in FATSQ2 --pattern1 PATTERN1 --pattern2 PATTERN2 --full_match``` 
+usage: ```barcodex --prefix PREFIX --separator SEPARATOR extract --umilist UMILIST inline --r1_in FASTQ1 --r2_in FATSQ2 --pattern1 PATTERN1 --pattern2 PATTERN2 --umi_separator UMI_SEPARATOR --full_match``` 
 
 Parameters
 
@@ -32,6 +32,7 @@ Parameters
 | --pattern2 | pattern or regex for extracting UMIs in read 2   | optional              |
 | --prefix | Specifies the start of the output files | required              |
 | --separator | String separating the UMI sequence in the read name   | required              |
+| --umi_separator | String separating the umis from read1 and read 2   | default is "."              |
 | --umilist | Path to file with valid UMIs | optional              |
 | --full_match | Requires the regex pattern to match the entire read sequence | optional              |
 
@@ -199,7 +200,7 @@ The first json captures information about the extraction process:
 - pattern2
 - umi-list
 
-The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, adding a "." separator to track the read origin of each UMI.
+The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, adding a separator (specified with ```--umi_separator```, default is ":") to track the read origin of each UMI.
 For instance, "AAA.TCG": 10 in the json file indicates that sequence AAATCG is found 10 times in all the extracted UMIs, and that it is made of AAA from read 1 and TCG from read 2.
 
 
