@@ -764,6 +764,26 @@ def _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=Non
        
     return d
 
+
+def _check_separator(separator, umi_separator):
+    '''
+    (str, str) -> None
+    
+    Raise a ValueError if umi_separator and separator are the same string
+    or if umi_separator is : (: is already used in the read name)
+    
+    Parameters
+    ----------
+    - separator (str): string separating the umis from the remaining of the read name
+    - umi_separator (str): string separating umis from read1 and read 2 if they exist
+    '''
+
+    if umi_separator == separator:
+        raise ValueError('--separator and --umi_separator must be distinct')
+    if umi_separator == ':':
+        raise ValueError('--umi_separator cannot be ":"')
+
+
     
 def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
                             full_match=False, separator='_', umi_separator = '.', umilist=None):
@@ -791,6 +811,9 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
     
     # time function call
     start = time.time()
+
+    # check separators
+    _check_separator(separator, umi_separator)
 
     # check that the number of input files is the same for paired end data
     _check_input_files(r1_in, r2_in)
