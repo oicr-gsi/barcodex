@@ -660,15 +660,16 @@ def _open_fastq_writing(output_file):
     return newfile
 
 
-def _get_valid_barcodes(umilist):
+def _get_valid_barcodes(umilist, umi_separator):
     '''
-    (str) -> list
+    (str, str) -> list
     
     Returns a list of accepted barcodes.
     
     Parameters
     ----------
     - umilist (str): Path to file with accepted barcodes. 
+    - umi_separator (str): String separating umis from read 1 and read 2
    '''
     
     # set lists for barcoes found in read1 and read 2
@@ -703,7 +704,7 @@ def _get_valid_barcodes(umilist):
     else:
         for i in barcode1:
             for j in barcode2:
-                valid_umis.append(i + '.' + j)
+                valid_umis.append(i + umi_separator + j)
     return valid_umis
 
 
@@ -765,9 +766,9 @@ def _get_extraction_metrics(Total, Matching, NonMatching, Rejected, pattern1=Non
 
     
 def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
-                            full_match=False, separator='_', umilist=None):
+                            full_match=False, separator='_', umi_separator = '.', umilist=None):
     '''
-    (list, str | None, str, str | None, str | None, bool, str, str | None) -> None
+    (list, str | None, str, str | None, str | None, bool, str, str, str | None) -> None
 
     Parameters
     ----------
@@ -784,6 +785,7 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
     - r2_in (list or None): Path(s) to the input FASTQ 2
     - full_match (bool): True if the regular expression needs to match the entire read sequence
     - separator (str): String separating the UMI sequence and part of the read header
+    - umi_separator (str): String separating the umis from read 1 and read 2
     - umilist (str or None): Path to file with accepted barcodes
     '''
     
@@ -835,7 +837,7 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
     
     # check if list of accepted barcodes provides
     if umilist:
-        barcodes = _get_valid_barcodes(umilist)
+        barcodes = _get_valid_barcodes(umilist, umi_separator)
     
     # count all reads and reads with matching and non-matching patterns
     Total, Matching, NonMatching, Rejected = 0, 0, 0, 0
@@ -874,7 +876,7 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
             umi_sequences = [L[i][2] if L[i] else '' for i in range(len(L))]
             if all(map(lambda x: x is not None, L)) and all(map(lambda x: x != '', umi_sequences)):
                 # use dot to join UMIs from each read
-                umi = '.'.join(umi_sequences)
+                umi = umi_separator.join(umi_sequences)
             
             # check if umi matched pattern
             if umi:
@@ -892,9 +894,9 @@ def extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None,
                     readnames = list(map(lambda x : _add_umi_to_readname(x, umi, separator), [read[i][0] for i in range(len(read))])) 
                     seqs, quals, umi_seqs, extracted_seqs, extracted_quals = zip(*L)
                 
-                    assert umi == '.'.join(umi_seqs)
+                    assert umi == umi_separator.join(umi_seqs)
                     # update umi counter. keep track of UMI origin
-                    umi_counts['.'.join(umi_seqs)] = umi_counts.get('.'.join(umi_seqs), 0) + 1
+                    umi_counts[umi_separator.join(umi_seqs)] = umi_counts.get(umi_separator.join(umi_seqs), 0) + 1
                                         
                     if pattern1 and pattern2:
                         # paired end sequencing, umi extracted from each read
@@ -1302,7 +1304,9 @@ def main():
     inline_extract_parser.add_argument('--pattern2', dest='pattern2', help='Barcode string of regex for extracting UMIs in read 2')
     inline_extract_parser.add_argument('--r2_in', dest='r2_in', nargs='*', help='Path to input FASTQ 2. Fastq 2 for paired end sequencing with inline UMIs. Fastq with UMIs for single end sequencing with UMIs not in line')
     inline_extract_parser.add_argument('--full_match', dest='full_match', action='store_true', help='Requires the regex pattern to match the entire read sequence. True if activated')
-       
+    inline_extract_parser.add_argument('--umi_separator', dest='umi_separator', default = '.', help='String separating umis from read 1 and read 2. Default is .')
+    
+    
     # extract UMI in separate file
     separate_extract_parser = extract_subparsers.add_parser('separate', help="Extract UMIs located in separate file")
     separate_extract_parser.add_argument('--r1_in', dest='r1_in', nargs='*', help='Path to input FASTQ 1', required=True)
@@ -1337,7 +1341,7 @@ def main():
         if args.extract_subparser_name == 'inline':
             try:
                 extract_barcodes_inline(args.r1_in, pattern1=args.pattern1, prefix=args.prefix, pattern2=args.pattern2, 
-                                        r2_in=args.r2_in, separator=args.separator, umilist=args.umilist)
+                                        r2_in=args.r2_in, separator=args.separator, umi_separator = args.separator, umilist=args.umilist)
             except AttributeError as e:
                 print('#############\n')
                 print('AttributeError: {0}\n'.format(e))
