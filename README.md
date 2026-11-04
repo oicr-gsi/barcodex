@@ -3,24 +3,13 @@
 BarcodEX is tool for extracting Unique Molecular Identifiers (UMIs) from single or paired-end read sequences.
 It can handle UMIs inline with reads or located in separate fastqs.
 
-## Installation from PyPi ##
-
-BarcodEx is available from PyPi
-
-```pip install barcodex```
-
-or 
-
-```python -m pip install barcodex```
-
-
 ## Extraction of UMI sequences ##
 
 BarcodEx extracts UMIs in read sequences or in fastqs with ```extract inline``` or ```extract separate``` sub-commands 
 
 ### Extracts UMIs in read sequences ###
 
-usage: ```barcodex --prefix PREFIX --separator SEPARATOR extract --umilist UMILIST inline --r1_in FASTQ1 --r2_in FATSQ2 --pattern1 PATTERN1 --pattern2 PATTERN2 --umi_separator UMI_SEPARATOR --full_match``` 
+usage: ```python barcodex.py --prefix PREFIX --separator SEPARATOR extract --umilist UMILIST inline --r1_in FASTQ1 --r2_in FATSQ2 --pattern1 PATTERN1 --pattern2 PATTERN2 --umi_separator UMI_SEPARATOR --full_match``` 
 
 Parameters
 
@@ -40,7 +29,7 @@ Parameters
 
 ### Extracts UMIs in fastqs ###
 
-usage: ```barcodex --prefix PREFIX --separator SEPARATOR --umilist UMILIST extract separate --r1_in FASTQ1 --r2_in FATSQ2 --ru_in UMIs``` 
+usage: ```python barcodex.py --prefix PREFIX --separator SEPARATOR --umilist UMILIST extract separate --r1_in FASTQ1 --r2_in FATSQ2 --ru_in UMIs``` 
 
 Parameters
 
@@ -200,7 +189,7 @@ The first json captures information about the extraction process:
 - pattern2
 - umi-list
 
-The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, adding a separator (specified with ```--umi_separator```, default is ":") to track the read origin of each UMI.
+The second json records the UMI counts after extraction. For paired end data it counts the concatenated sequences with UMIs from read 1 and read 2, adding a separator (specified with ```--umi_separator```, default is ".") to track the read origin of each UMI.
 For instance, "AAA.TCG": 10 in the json file indicates that sequence AAATCG is found 10 times in all the extracted UMIs, and that it is made of AAA from read 1 and TCG from read 2.
 
 
@@ -214,7 +203,7 @@ Morever, fastqs with extracted read sequences and/or discarded reads (if any) sh
 
 ### Restore fastqs from extraction of UMIs in read sequences ###
 
-usage: ```barcodex --prefix PREFIX --separator SEPARATOR restore inline --umi_pos UMI_POS --r1_processed R1_PROCESSED --r2_processed R2_PROCESSED --r1_extracted R1_EXTRACTED --r2_extracted R2_EXTRACTED --r1_discarded R1_DISCARDED --r2_discarded R2_DISCARDED```
+usage: ```python barcodex.py --prefix PREFIX --separator SEPARATOR restore inline --umi_pos UMI_POS --r1_processed R1_PROCESSED --r2_processed R2_PROCESSED --r1_extracted R1_EXTRACTED --r2_extracted R2_EXTRACTED --r1_discarded R1_DISCARDED --r2_discarded R2_DISCARDED```
 
 Parameters
 
@@ -233,7 +222,7 @@ Parameters
 
 ### Restore fastqs from processing of UMIs located in separate file ###
 
-usage: ```barcodex --prefix PREFIX --separator SEPARATOR restore separate --r1_processed R1_PROCESSED --r2_processed R2_PROCESSED --r1_discarded R1_DISCARDED --r2_discarded R2_DISCARDED --umi_extracted UMI_EXTRACTED --umi_discarded UMI_DISCARDED```
+usage: ```python barcodex.py --prefix PREFIX --separator SEPARATOR restore separate --r1_processed R1_PROCESSED --r2_processed R2_PROCESSED --r1_discarded R1_DISCARDED --r2_discarded R2_DISCARDED --umi_extracted UMI_EXTRACTED --umi_discarded UMI_DISCARDED```
 
 Parameters
 
@@ -247,39 +236,6 @@ Parameters
 | --umi_discarded | FASTQ with invalid UMIs that are not in processed FASTQs | optional              |
 
 
-## Importing Barcodex as a module ##
-
-BarcodEx can be run as a script or imported as a module to perform extraction within your own script.
-
-
-```
-from barcodex import extract_barcodes_inline
-
-help(barcodex.extract_barcodes_inline)
-Help on function extract_barcodes_inline in module barcodex:
-
-extract_barcodes_inline(r1_in, pattern1, prefix, pattern2=None, r2_in=None, full_match=False, separator='_', umilist=None)
-    (list, str | None, str, str | None, str | None, bool, str, str | None) -> None
-    
-    Parameters
-    ----------
-    - r1_in (list): Path(s) to the input FASTQ 1
-    - pattern1 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 1.
-                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
-                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
-                             None if UMIs are extracted only from FASTQ 2 for paired end sequences
-    - prefix (str): Specifies the start of the output files and stats json files
-    - pattern2 (str or None): String sequence or regular expression used for matching and extracting UMis from reads in FASTQ 2.
-                             The string sequence must look like NNNATCG or NNN. UMI nucleotides are labeled with "N".
-                             Spacer nucleotides following Ns are used for matching UMIs but are discarded from reads    
-                             None if UMIs are extracted only from FASTQ 1 for paired end sequences
-    - r2_in (list or None): Path(s) to the input FASTQ 2
-    - full_match (bool): True if the regular expression needs to match the entire read sequence
-    - separator (str): String separating the UMI sequence and part of the read header
-    - umilist (str or None): Path to file with accepted barcodes
-```
-
-
 ## Example commands ##
 
 **Example 1. Paired end end with string sequence**
@@ -289,7 +245,7 @@ Extracts the first 12 bp UMI when followed by spacer ATGGGAAAGAGTGTCC and remove
 Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq --r2_in myfile_R2.fastq --pattern NNNNNNNNNNNNATGGGAAAGAGTGTCC \
+python barcodex.py --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq --r2_in myfile_R2.fastq --pattern NNNNNNNNNNNNATGGGAAAGAGTGTCC \
 ```
 
 **Example 2. Paired end with regex**
@@ -299,7 +255,7 @@ Extracts the first 3 nucleotides as UMI and discards the next 2 nucleotide space
 Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2})" --pattern2 "(?<umi>.{3})(?<discard>.{2})"
+python barcodex.py --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2})" --pattern2 "(?<umi>.{3})(?<discard>.{2})"
 ```
 
 **Example 3. Full match regex option**
@@ -307,7 +263,7 @@ barcodex --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq.
 Same as Example 2, but the regex patterns are modified to suit the ```--full_match``` regex requirement.
 
 ```
-barcodex --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2}.+)" --pattern2 "(?<umi>.{3})(?<discard>.{2}.+)" --full_match
+python barcodex.py --separator "_" --prefix output extract inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2}.+)" --pattern2 "(?<umi>.{3})(?<discard>.{2}.+)" --full_match
 ```
 
 **Example 4. List of UMIs**
@@ -319,7 +275,7 @@ Extracted UMIs are checked against the true_barcode.txt UMI list. Reads with non
 Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix output extract --umilist true_barcodes.txt inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)" --pattern2 "(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)"
+python barcodex.py --separator "_" --prefix output extract --umilist true_barcodes.txt inline --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --pattern1 "(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)" --pattern2 "(?P<umi_1>^[ACGT]{3}[ACG])(?P<discard_1>T)|(?P<umi_2>^[ACGT]{3})(?P<discard_2>T)"
 ```
 
 **example 5. Single end**
@@ -329,7 +285,7 @@ Extracts the first 12 bp UMI when followed by spacer ATGGGAAAGAGTGTCC and remove
 Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix x extract --umilist true_barcodes.txt inline --r1_in myfile_R1.fastq.gz --pattern1 "(?P<umi>^.{12})(?P<discard>ATGGGAAAGAGTGTCC)" \
+python barcodex.py --separator "_" --prefix x extract --umilist true_barcodes.txt inline --r1_in myfile_R1.fastq.gz --pattern1 "(?P<umi>^.{12})(?P<discard>ATGGGAAAGAGTGTCC)" \
 ```
 
 **Example 6. Multiple input fastqs**
@@ -339,7 +295,7 @@ Extracts the first 3 nucleotides as UMI and discards the next 2 nucleotide space
 Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix output_umis extract --umilist true_barcodes.txt inline --r1_in myfile_R1.1.fastq.gz myfile_R1.2.fastq.gz myfile_R1.3.fastq.gz myfile_R1.4.fastq.gz --r2_in myfile_R2.1.fastq.gz myfile_R2.2.fastq.gz myfile_R2.3.fastq.gz myfile_R2.4.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2})" --pattern2 "(?<umi>.{3})(?<discard>.{2})" 
+python barcodex.py --separator "_" --prefix output_umis extract --umilist true_barcodes.txt inline --r1_in myfile_R1.1.fastq.gz myfile_R1.2.fastq.gz myfile_R1.3.fastq.gz myfile_R1.4.fastq.gz --r2_in myfile_R2.1.fastq.gz myfile_R2.2.fastq.gz myfile_R2.3.fastq.gz myfile_R2.4.fastq.gz --pattern1 "(?<umi>.{3})(?<discard>.{2})" --pattern2 "(?<umi>.{3})(?<discard>.{2})" 
 ```
 
 **Example 7. Paired end with UMIs in file**
@@ -348,57 +304,23 @@ Extraction of UMIs in read 1 and read 2 for paired end data with UMIs located in
 Extracts the first 10 nucleotides as UMI. Umis are preceded by an underscore in the read header.
 
 ```
-barcodex --separator "_" --prefix foo/bar/myfastq.umis extract separate --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --ru_in myfile_R3.fastq.gz
+python barcodex.py --separator "_" --prefix foo/bar/myfastq.umis extract separate --r1_in myfile_R1.fastq.gz --r2_in myfile_R2.fastq.gz --ru_in myfile_R3.fastq.gz
 ```
 
-**Example 8. Importing BarcodEx as module within a script to extract UMIs**
-
-Sample as Example 2.
-
-```
-import gzip
-from itertools import zip_longest
-import regex
-import json
-import time
-from barcodex import extract_barcodes_inline
-
-
-extract_barcodes_inline(['myfile_R1.fastq.gz'], pattern1='(?<umi>.{3})(?<discard>.{2})', prefix='x',
-                   pattern2='(?<umi>.{3})(?<discard>.{2})', r2_in=['myfile_R2.fastq.gz'], full_match=False, separator='_', umilist=None)
-
-```
-
-**Example 9. Importing BarcodEx as module within a script to restore fastqs**
-
-Generate input fastqs before extraction of inline UMIs.
- 
-
-```
-import gzip
-from itertools import zip_longest
-import regex
-import json
-import time
-from barcodex import reconstruct_fastqs_inline
-
-reconstruct_fastqs_inline('x', '_', '5prime', 'filename_R1.fastq.gz', 'filename_extracted.R1.fastq.gz', 'filename_discarded.R1.fastq.gz', 'filename_R1.fastq.gz', 'filename_extracted.R2.fastq.gz', 'filename_discarded.R2.fastq.gz')
-```
-
-**Example 10. Restore paired-end fastqs from inline-UMI extraction**
+**Example 8. Restore paired-end fastqs from inline-UMI extraction**
 
 Inline UMIs were extracted from read 1 and read 2 and added to read names with a "_" separator. The same separator variable should be use to restore the original fastqs.
 UMIs were extracted from the 5' read end.
 
 ```
-barcodex --separator "_" --prefix my_fastqs restore inline  --umi_pos 5prime --r1_processed x_R1_fastq.gz --r2_processed x_R2_fastq.gz --r1_extracted x_extracted.R1.fastq.gz --r2_extracted x_extracted.R2.fastq.gz --r1_discarded x_discarded.R1.fastq.gz --r2_discarded x_discarded.R2.fastq.gz
+python barcodex.py --separator "_" --prefix my_fastqs restore inline  --umi_pos 5prime --r1_processed x_R1_fastq.gz --r2_processed x_R2_fastq.gz --r1_extracted x_extracted.R1.fastq.gz --r2_extracted x_extracted.R2.fastq.gz --r1_discarded x_discarded.R1.fastq.gz --r2_discarded x_discarded.R2.fastq.gz
 ```
 
-**Example 11. Restore single-end fastq with UMI located in separate file**
+**Example 9. Restore single-end fastq with UMI located in separate file**
 
 UMIs located in separate file were added to read 1 "_" separator.
 Some UMIs were filtered out with a umilist.
 
 ```
-barcodex --separator "_" --prefix my_fastqs restore separate --r1_processed x_R1_fastq.gz --r1_discarded x_discarded.R1.fastq.gz --umi_extracted x__extracted_umis.fastq.gz --umi_discarded x_discarded_umis.fastq.gz
+python barcodex.py --separator "_" --prefix my_fastqs restore separate --r1_processed x_R1_fastq.gz --r1_discarded x_discarded.R1.fastq.gz --umi_extracted x__extracted_umis.fastq.gz --umi_discarded x_discarded_umis.fastq.gz
 ```
